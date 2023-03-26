@@ -37,6 +37,12 @@ type LoginOut struct {
 	Token  string `json:"token"`
 }
 
+type LogoutIn struct {
+	Token  string `json:"token"`
+}
+
+type LogoutOut struct {}
+
 type SignoutIn struct {
 	Token  string `json:"token"`
 }

@@ -183,6 +183,22 @@ func chain(
 	return err
 }
 
+func logout(
+	db DB, w http.ResponseWriter,
+	r *http.Request, in *LogoutIn, out *LogoutOut,
+) error {
+	ok, name, err := IsValidToken(in.Token)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("Not connected!")
+	}
+
+	ClearUser(name)
+	return nil
+}
+
 func edit(
 	db DB, w http.ResponseWriter,
 	r *http.Request, in *EditIn, out *EditOut,
@@ -210,6 +226,7 @@ func edit(
 
 	return nil
 }
+
 // For quick tests: curl -X POST -d '{"Name": "user" }' localhost:7070/signin
 func New(db DB) *http.ServeMux {
 	mux := http.NewServeMux()
@@ -227,9 +244,7 @@ func New(db DB) *http.ServeMux {
 	// Check a token's validity/update it
 	mux.HandleFunc("/chain",   wrap[ChainIn,   ChainOut](db, chain))
 
-	// Useless we keep no state server-side, and as token
-	// is not even transmitted in a cookie.
-//	mux.HandleFunc("/logout",  wrap[LogoutIn,  LogoutOut](db, logout))
+	mux.HandleFunc("/logout",  wrap[LogoutIn,  LogoutOut](db, logout))
 
 	// email ownership verification upon signin
 //	mux.HandleFunc("/verify",  wrap[VerifyIn,  VerifyOut](db, verify))

@@ -14,6 +14,10 @@ import (
 	jwt "github.com/golang-jwt/jwt/v5"
 )
 
+func init() {
+	LoadConf("config.json.base")
+}
+
 func newParseToken(name string, date int64, uniq string) jwt.MapClaims {
 	str, err := newToken(name, date, uniq)
 	if err != nil {
@@ -66,8 +70,8 @@ func newChainParseToken(
 }
 
 func TestCheckToken(t *testing.T) {
-	before := time.Now().Unix() + timeout
-	after  := time.Now().Unix() + 2*timeout
+	before := time.Now().Unix() + C.Timeout
+	after  := time.Now().Unix() + 2*C.Timeout
 
 	doTests(t, []test{
 		{

@@ -7,6 +7,10 @@ dev-site:
 	@go run cmd/auth.go
 
 .PHONY: tests
-tests:
+tests: private.pem public.pem
 	@echo Running tests...
 	@go test -v
+
+private.pem public.pem: genkeys.sh
+	@echo Generating '(dummy)' private/public keys...
+	@sh genkeys.sh

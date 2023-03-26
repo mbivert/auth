@@ -24,6 +24,10 @@ var handler http.Handler
 var errSegment = jwt.ErrTokenMalformed.Error()+": token contains an invalid number of segments"
 var errSignature = jwt.ErrTokenSignatureInvalid.Error()+": signature is invalid"
 
+func init() {
+	LoadConf("config.json.base")
+}
+
 // Individual tests rely on a ~fresh DB; "init" cannot be
 // called directly.
 func init2() {
@@ -205,7 +209,7 @@ func TestSignin(t *testing.T) {
 	})
 }
 
-func TestLogin(t *testing.T) {
+func TestLoginLogout(t *testing.T) {
 	init2()
 
 	doTests(t, []test{
@@ -249,6 +253,21 @@ func TestLogin(t *testing.T) {
 			}},
 		},
 		{
+			"Logging out a logged out user",
+			callURL,
+			[]interface{}{handler, "/logout", map[string]interface{}{
+				// Dummy, but correctly formatted/encrypted
+				"token"  : "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"+
+					".eyJkYXRlIjoxNjc5NzkzMDM4LCJuYW1lIjoidGVzdCIs"+
+					"InVuaXEiOiJqRmdOZGFldzZYNTVaRjJoc3JDdFM2NVNIdU"+
+					"1DajFoakszd2VhUTJnaWVzV1NUdzJKZnNzRnpDc0pHYmp4UUtjIn0"+
+					".iVU2Q99JAbuAM-dZQS2w5eP5y3MmKDC7Qwj3Z7CWbWk",
+			}},
+			[]interface{}{map[string]interface{}{
+				"err" : "Not connected!",
+			}},
+		},
+		{
 			"Valid user/password",
 			callURLWithToken,
 			[]interface{}{handler, "/login", map[string]interface{}{
@@ -261,6 +280,18 @@ func TestLogin(t *testing.T) {
 					"uniq" : "redacted", // idem
 					"name" : "test",
 				},
+			}},
+		},
+	})
+	doTests(t, []test{
+		{
+			"Logging out a logged in user",
+			callURL,
+			[]interface{}{handler, "/logout", map[string]interface{}{
+				// This is arbitrary, but signed
+				"token"  : tokenStr,
+			}},
+			[]interface{}{map[string]interface{}{
 			}},
 		},
 	})
@@ -429,7 +460,7 @@ func TestChain(t *testing.T) {
 }
 
 // Ensure jwt lib signing does work as expected
-func TestSigning(t *testing.T) {
+func TestTweaking(t *testing.T) {
 	init2()
 
 	doTests(t, []test{
@@ -480,3 +511,23 @@ func TestSigning(t *testing.T) {
 	})
 }
 
+// NOTE: some error messages depends on hmac/keys and
+// thus have been left out (the goal is to perform a
+// basic check that things work OK with private/public
+// keys, so it's good enough)
+func TestSomeWithECDSA(t *testing.T) {
+	C.PublicKey = "public.pem"
+	C.PrivateKey = "private.pem"
+	hmac := C.HMAC
+
+	LoadKeys()
+
+	// Why not
+	TestChain(t)
+	TestSignin(t)
+	TestSignout(t)
+
+	C.PublicKey = ""
+	C.PrivateKey = ""
+	C.HMAC = hmac
+}

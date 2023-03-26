@@ -4,7 +4,7 @@ package auth
 // to isolate technical details.
 //
 // "Public" functions are the capitalized ones (NewToken(),
-// IsValidToken(), ChainToken())
+// IsValidToken(), ChainToken(), ClearUser())
 
 import (
 	"fmt"
@@ -20,13 +20,11 @@ const (
 )
 
 var (
-	timeout = int64(3600)
-	secret  = []byte("something-to-be-definitely-refined")
 	uniqs   = map[string]string{}
-	uniqsmu = &sync.Mutex{}
+	uniqsMu = &sync.Mutex{}
 )
 
-// Generate random string of n bytes
+// Generate a random string of n bytes
 func randString(n int) string {
 	buf := make([]byte, n)
 
@@ -37,38 +35,67 @@ func randString(n int) string {
 	return string(buf)
 }
 
-// for tests
-func newToken(name string, edate int64, uniq string) (string, error) {
+func newHMACToken(name string, edate int64, uniq string) (string, error) {
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"name" : name,
 		"uniq" : uniq,
-		// XXX jwt.NewNumericDate(time.Now().Add(24 * time.Hour)) ?
+		// XXX jwt.NewNumericDate(time.Now().Add(C.Timeout)) ?
 		"date" : edate,
-	}).SignedString(secret)
+	}).SignedString([]byte(C.HMAC))
+}
+
+func newECDSAToken(name string, edate int64, uniq string) (string, error) {
+	return jwt.NewWithClaims(jwt.SigningMethodES256, jwt.MapClaims{
+		"name" : name,
+		"uniq" : uniq,
+		// XXX jwt.NewNumericDate(time.Now().Add(C.Timeout)) ?
+		"date" : edate,
+	}).SignedString(privateKey)
+}
+
+// for tests
+func newToken(name string, edate int64, uniq string) (string, error) {
+	if C.HMAC != "" {
+		return newHMACToken(name, edate, uniq)
+	}
+	return newECDSAToken(name, edate, uniq)
 }
 
 func storeUniq(name, uniq string) string {
-	uniqsmu.Lock()
+	uniqsMu.Lock()
 	uniqs[name] = uniq
-	uniqsmu.Unlock()
+	uniqsMu.Unlock()
 	return uniq
 }
 
 func mkUniq(name string) string {
-	// TODO configuration / parameter (length)
-	return storeUniq(name, randString(64))
+	return storeUniq(name, randString(C.LenUniq))
 }
 
 func NewToken(name string) (string, error) {
-	return newToken(name, time.Now().Unix()+timeout, mkUniq(name))
+	return newToken(name, time.Now().Unix()+C.Timeout, mkUniq(name))
+}
+
+func parseHMAC(tok *jwt.Token) (interface{}, error) {
+	if _, ok := tok.Method.(*jwt.SigningMethodHMAC); !ok {
+		return nil, fmt.Errorf("Invalid signing method: %v", tok.Header["alg"])
+	}
+	return []byte(C.HMAC), nil
+}
+
+func parseECDSA(tok *jwt.Token) (interface{}, error) {
+	if _, ok := tok.Method.(*jwt.SigningMethodECDSA); !ok {
+		return nil, fmt.Errorf("Invalid signing method: %v", tok.Header["alg"])
+	}
+	return publicKey, nil
 }
 
 func parseToken(str string) (jwt.MapClaims, error) {
 	tok, err := jwt.Parse(str, func(tok *jwt.Token) (interface{}, error) {
-		if _, ok := tok.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Invalid signing method: %v", tok.Header["alg"])
+		if C.HMAC != ""{
+			return parseHMAC(tok)
 		}
-		return secret, nil
+		return parseECDSA(tok)
 	})
 
 	if err != nil {
@@ -90,8 +117,8 @@ func isValidToken(claims jwt.MapClaims) bool {
 	u, _ := claims["uniq"].(string)
 	n, _ := claims["name"].(string)
 
-	uniqsmu.Lock()
-	defer uniqsmu.Unlock()
+	uniqsMu.Lock()
+	defer uniqsMu.Unlock()
 
 	dok := (int64(d) > time.Now().Unix())
 	uok := subtle.ConstantTimeCompare([]byte(u), []byte(uniqs[n])) == 1
@@ -132,5 +159,11 @@ func chainToken(str string, edate int64, uniq string) (string, error) {
 }
 
 func ChainToken(str string) (string, error) {
-	return chainToken(str, time.Now().Unix()+timeout, "")
+	return chainToken(str, time.Now().Unix()+C.Timeout, "")
+}
+
+func ClearUser(name string) {
+	uniqsMu.Lock()
+	delete(uniqs, name)
+	uniqsMu.Unlock()
 }

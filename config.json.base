@@ -1,0 +1,20 @@
+{
+	"//":"NOTE: tests rely on this file",
+
+	"//":"Key used to encrypt cookies. Certificate/key overrides HMAC.",
+	"HMAC"         : "something-to-be-definitely-refined",
+	"//PrivateKey" : "private.pem",
+	"//PublicKey"  : "public.pem",
+
+	"//":"How to send verification emails",
+	"SMTPServer"  : "smtp.gmail.com",
+	"SMTPPort"    : "587",
+	"AuthEmail"   : "",
+	"AuthPasswd"  : "",
+
+	"//":"Token lifetime",
+	"Timeout"     : 3600,
+
+	"//":"Internal stuff; read the code for more",
+	"LenUniq"     : 64
+}
