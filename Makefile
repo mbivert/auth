@@ -11,6 +11,11 @@ tests: private.pem public.pem
 	@echo Running tests...
 	@go test -v
 
+.PHONY: tests-token
+tests-token: token_test.go token.go config.go ftests.go utils.go
+	@echo Running token tests...
+	@go test -v $?
+
 private.pem public.pem: genkeys.sh
 	@echo Generating '(dummy)' private/public keys...
 	@sh genkeys.sh

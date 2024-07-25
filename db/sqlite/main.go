@@ -1,7 +1,7 @@
 package sqlite
 
-// implements auth.DB (../types.go:/type DB interface);
-// indirectly tested via ../auth_test.go
+// implements auth.DB (../../types.go:/type DB interface);
+// indirectly tested via ../../auth_test.go
 
 import (
 	"database/sql"
@@ -38,7 +38,9 @@ func (db *DB) AddTable() error {
 			id                      INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
 			name        TEXT        UNIQUE,
 			email       TEXT        UNIQUE,
-			passwd      TEXT
+			passwd      TEXT,
+			verified    INTEGER,
+			cdate       INTEGER
 		)
 	`)
 	return err
@@ -53,18 +55,45 @@ func (db *DB) AddUser(u *auth.User) error {
 
 	// TODO: clarify exec vs. query (is there a prepare here?)
 	err := db.QueryRow(`INSERT INTO
-		users(name, email, passwd)
-		VALUES($1, $2, $3)
-		RETURNING id`, u.Name, u.Email, u.Passwd,
+		users(name, email, passwd, verified, cdate)
+		VALUES($1, $2, $3, $4, $5)
+		RETURNING id`, u.Name, u.Email, u.Passwd, u.Verified, u.CDate,
 	).Scan(&u.Id)
 
-	// Improve error message
+	// Improve error message (this is for tests purposes: caller
+	// is expected to provide end user with something less informative)
 	if err != nil && err.Error() == "UNIQUE constraint failed: users.email" {
 		err = fmt.Errorf("Email already used")
 	}
 	if err != nil && err.Error() == "UNIQUE constraint failed: users.name" {
 		err = fmt.Errorf("Username already used")
 	}
+
+	return err
+}
+
+func (db *DB) EnableUser(u *auth.User) error {
+	db.Lock()
+	defer db.Unlock()
+
+	// TODO: clarify exec vs. query (is there a prepare here?)
+//	err := db.QueryRow(`
+	_, err := db.Exec(`
+		UPDATE
+			users
+		SET
+			verified = $1
+		WHERE
+			name  = $1
+		AND email = $2
+	`, true, u.Name, u.Email)
+
+	// Improve error message
+	if errors.Is(err, sql.ErrNoRows) {
+		err = fmt.Errorf("Invalid login or password")
+	}
+
+	u.Verified = true
 
 	return err
 }

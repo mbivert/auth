@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"time"
 	"net/http"
 	"log"
 	"fmt"
@@ -8,8 +9,12 @@ import (
 	"encoding/json"
 	"golang.org/x/crypto/bcrypt"
 	"errors"
+//	"sync"
 	auth "github.com/mbivert/auth/user"
 )
+
+var verifs   = map[string]string{}
+// var verifsMu = &sync.Mutex
 
 func (e *Email) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &e.string); err != nil {
@@ -35,7 +40,7 @@ type SomeErr struct {
 	Err string `json:"err"`
 }
 
-func fail(w http.ResponseWriter, err error) {
+func fails(w http.ResponseWriter, err error) {
 	if _, ok := err.(*intErr); ok {
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
@@ -85,7 +90,7 @@ func wrap[Tin, Tout any](
 		return
 
 		err:
-			fail(w, err)
+			fails(w, err)
 			return
 	}
 }
@@ -117,14 +122,17 @@ func signin(
 		return err
 	}
 
-	// XXX error message is a bit rough/too verbose
-	if err := db.AddUser(&auth.User{0, in.Name, in.Email.string, in.Passwd}); err != nil {
+	// XXX rough/verbose error message
+	if err := db.AddUser(&auth.User{
+		0, in.Name, in.Email.string, in.Passwd, false, time.Now().UTC().Unix(),
+	}); err != nil {
 		return err
 	}
 
 	// TODO: send an email to the specified address.
 	// If so, we'll want to add a timer/restrictions to avoid
-	// being used to spam people.
+	// being used to spam people. (Only allow n /signin per 24h
+	// at fw level?)
 
 	// TODO: also, have a way to automatically remove
 	// unverified accounts periodically.
@@ -142,6 +150,10 @@ func login(
 	u.Email = in.Login
 	if err := db.GetUser(&u); err != nil {
 		return err
+	}
+
+	if !u.Verified {
+		return fmt.Errorf("User disabled (email ownership not verified?)")
 	}
 
 	// constant time
@@ -227,6 +239,14 @@ func edit(
 	return nil
 }
 
+func verify(
+	db DB, w http.ResponseWriter,
+	r *http.Request, in *VerifyIn, out *VerifyOut,
+) (err error) {
+	r.URL.Query().Get("token")
+	return nil
+}
+
 // For quick tests: curl -X POST -d '{"Name": "user" }' localhost:7070/signin
 func New(db DB) *http.ServeMux {
 	mux := http.NewServeMux()
@@ -247,7 +267,7 @@ func New(db DB) *http.ServeMux {
 	mux.HandleFunc("/logout",  wrap[LogoutIn,  LogoutOut](db, logout))
 
 	// email ownership verification upon signin
-//	mux.HandleFunc("/verify",  wrap[VerifyIn,  VerifyOut](db, verify))
+	mux.HandleFunc("/verify",  wrap[VerifyIn,  VerifyOut](db, verify))
 
 	// Password/email edition
 	mux.HandleFunc("/edit",    wrap[EditIn,    EditOut](db, edit))

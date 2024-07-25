@@ -12,28 +12,12 @@ import (
 	jwt "github.com/golang-jwt/jwt/v5"
 	"sync"
 	"crypto/subtle"
-	"math/rand"
-)
-
-const (
-	alnum = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ123456789"
 )
 
 var (
 	uniqs   = map[string]string{}
 	uniqsMu = &sync.Mutex{}
 )
-
-// Generate a random string of n bytes
-func randString(n int) string {
-	buf := make([]byte, n)
-
-	for i := 0; i < n; i++ {
-		buf[i] = alnum[rand.Intn(len(alnum))]
-	}
-
-	return string(buf)
-}
 
 func newHMACToken(name string, edate int64, uniq string) (string, error) {
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -63,8 +47,8 @@ func newToken(name string, edate int64, uniq string) (string, error) {
 
 func storeUniq(name, uniq string) string {
 	uniqsMu.Lock()
+	defer uniqsMu.Unlock()
 	uniqs[name] = uniq
-	uniqsMu.Unlock()
 	return uniq
 }
 
@@ -110,7 +94,7 @@ func parseToken(str string) (jwt.MapClaims, error) {
 }
 
 func isValidToken(claims jwt.MapClaims) bool {
-	// we're unpakcing a (correctly) signed token: all
+	// we're unpacking a (correctly) signed token: all
 	// those must be present (well, can't have been
 	// altered from outside at least).
 	d, _ := claims["date"].(float64)

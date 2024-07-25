@@ -1,7 +1,7 @@
 package auth
 
 /*
-	TODO: edit tests framework article.
+	TODO: edit tests framework article (why?)
 */
 
 import (
@@ -28,7 +28,7 @@ func init() {
 	LoadConf("config.json.base")
 }
 
-// Individual tests rely on a ~fresh DB; "init" cannot be
+// Individual tests rely on a ~fresh DB; "init()" cannot be
 // called directly.
 func init2() {
 	dbfn := "./db_test.sqlite"
