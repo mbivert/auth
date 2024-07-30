@@ -72,7 +72,8 @@ func (db *DB) AddUser(u *auth.User) error {
 	return err
 }
 
-func (db *DB) EnableUser(u *auth.User) error {
+// XXX Enable vs. Verify
+func (db *DB) VerifyUser(u *auth.User) error {
 	db.Lock()
 	defer db.Unlock()
 
