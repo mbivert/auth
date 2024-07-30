@@ -7,6 +7,7 @@
 	"//PublicKey"  : "public.pem",
 
 	"//":"How to send verification emails",
+	"NoVerif"     : true,
 	"SMTPServer"  : "smtp.gmail.com",
 	"SMTPPort"    : "587",
 	"AuthEmail"   : "",

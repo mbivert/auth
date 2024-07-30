@@ -180,7 +180,7 @@ func login(
 		return err
 	}
 
-	if !u.Verified {
+	if !C.NoVerif && !u.Verified {
 		return fmt.Errorf("Email not verified")
 	}
 
@@ -267,7 +267,26 @@ func edit(
 	return nil
 }
 
+func verify(
+	db DB, w http.ResponseWriter,
+	r *http.Request, in *VerifyIn, out *VerifyOut,
+) (err error) {
+	if name := tryVerifTok(in.Token); name != "" {
+		if err := db.VerifyUser(name); err != nil {
+			return fmt.Errorf("Can't verify user '%s': %s", name, err)
+		}
+
+		// XXX Alright, this is convenient, but maybe we'd want
+		// to think more about it; pretty sure I'd prefer to have
+		// a genuine JWT token in in.Token.
+		out.Token, err = NewToken(name)
+		return err
+	}
+	return fmt.Errorf("Invalid token")
+}
+
 // For quick tests: curl -X POST -d '{"Name": "user" }' localhost:7070/signin
+// XXX: Why is the loaded conf shared (module-wise) but not the DB?
 func New(db DB) *http.ServeMux {
 	mux := http.NewServeMux()
 
@@ -286,21 +305,9 @@ func New(db DB) *http.ServeMux {
 
 	mux.HandleFunc("/logout",  wrap[LogoutIn,  LogoutOut](db, logout))
 
-	// email ownership verification upon signin
-//	mux.HandleFunc("/verify",  wrap[VerifyIn,  VerifyOut](db, verify))
-
-	// inlined to ease DB access; we don't need wrap() here
-	mux.HandleFunc("/verify",  func(w http.ResponseWriter, r *http.Request) {
-		token := r.URL.Query().Get("token")
-		if name := tryVerifTok(token); name != "" {
-			if err := db.VerifyUser(name); err != nil {
-				http.Error(w, "bad token", http.StatusBadRequest)
-			} else {
-				// XXX URL should be configurable
-				http.Redirect(w, r, "/?verified=true", http.StatusSeeOther)
-			}
-		}
-	})
+	// email ownership verification upon signin,
+	// followed by an automatic login.
+	mux.HandleFunc("/verify",  wrap[VerifyIn,  VerifyOut](db, verify))
 
 	// Password/email edition
 	mux.HandleFunc("/edit",    wrap[EditIn,    EditOut](db, edit))

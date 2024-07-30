@@ -37,7 +37,7 @@ func newECDSAToken(name string, edate int64, uniq string) (string, error) {
 	}).SignedString(privateKey)
 }
 
-// for tests
+// NOTE: not inlined in NewToken for tests
 func newToken(name string, edate int64, uniq string) (string, error) {
 	if C.HMAC != "" {
 		return newHMACToken(name, edate, uniq)
@@ -97,6 +97,8 @@ func isValidToken(claims jwt.MapClaims) bool {
 	// we're unpacking a (correctly) signed token: all
 	// those must be present (well, can't have been
 	// altered from outside at least).
+	//
+	// NOTE: we may still want to add assertions here anyway.
 	d, _ := claims["date"].(float64)
 	u, _ := claims["uniq"].(string)
 	n, _ := claims["name"].(string)
@@ -105,6 +107,10 @@ func isValidToken(claims jwt.MapClaims) bool {
 	defer uniqsMu.Unlock()
 
 	dok := (int64(d) > time.Now().Unix())
+
+	// I mean, sure, but if the token has been signed and we're assuming
+	// it hasn't been altered, the likelihood for this to be incorrect
+	// is zero: the whole uniq shebang is probably overkill.
 	uok := subtle.ConstantTimeCompare([]byte(u), []byte(uniqs[n])) == 1
 
 	return dok && uok
@@ -121,7 +127,7 @@ func IsValidToken(str string) (bool, string, error) {
 	return isValidToken(claims), n, nil
 }
 
-// for tests
+// NOTE: Again, not inlined in ChainToken() for tests
 func chainToken(str string, edate int64, uniq string) (string, error) {
 	claims, err := parseToken(str)
 	if err != nil {
@@ -134,7 +140,8 @@ func chainToken(str string, edate int64, uniq string) (string, error) {
 
 	n, _ := claims["name"].(string)
 
-	// To ease tests
+	// In tests, we provide a known uniq; it's "" iff we're
+	// in production (see ChainToken() below)
 	if uniq == "" {
 		uniq = mkUniq(n)
 	}

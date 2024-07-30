@@ -11,18 +11,19 @@ import (
 )
 
 type Config struct {
-	// TODO
-	HMAC		string
-	PublicKey   string
-	PrivateKey  string
+	HMAC       string
+	PublicKey  string
+	PrivateKey string
 
+	// TODO: defined but not implemented yet.
+	NoVerif    bool
 	SMTPServer string
 	SMTPPort   string
 	AuthEmail  string
 	AuthPasswd string
 
-	Timeout  int64
-	LenUniq  int
+	Timeout    int64
+	LenUniq    int
 }
 
 var C Config

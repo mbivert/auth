@@ -16,6 +16,7 @@ import (
 	"github.com/mbivert/auth/db/sqlite"
 	jwt "github.com/golang-jwt/jwt/v5"
 	"encoding/base64"
+	"github.com/mbivert/ftests"
 )
 
 var handler http.Handler
@@ -44,6 +45,9 @@ func init2() {
 	}
 
 	handler = New(db)
+
+	// XXX/NOTE: for now, all tests require verification to be disabled.
+	C.NoVerif = true
 }
 
 func getVerifTokFor(name string) string {
@@ -57,7 +61,7 @@ func getVerifTokFor(name string) string {
 	return ""
 }
 
-func callURL(handler http.Handler, url string, args interface{}) interface{} {
+func callURL(handler http.Handler, url string, args any) any {
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
 
@@ -71,7 +75,7 @@ func callURL(handler http.Handler, url string, args interface{}) interface{} {
 		log.Fatal(err)
 	}
 
-	var out interface{}
+	var out any
 //	x, err := ioutil.ReadAll(r.Body)
 //	fmt.Println(string(x))
 	err = json.NewDecoder(r.Body).Decode(&out)
@@ -91,10 +95,10 @@ var tokenStr = ""
 
 // same as callURL, but output is expected to be a hash containing
 // a token
-func callURLWithToken(handler http.Handler, url string, args interface{}) interface{} {
+func callURLWithToken(handler http.Handler, url string, args any) any {
 	out := callURL(handler, url, args)
 
-	out2, ok := out.(map[string]interface{})
+	out2, ok := out.(map[string]any)
 	if !ok {
 		log.Fatal("Weird output")
 	}
@@ -129,41 +133,41 @@ func callURLWithToken(handler http.Handler, url string, args interface{}) interf
 func TestSignin(t *testing.T) {
 	init2()
 
-	doTests(t, []test{
+	ftests.Run(t, []ftests.Test{
 		{
 			"Invalid input",
 			callURL,
-			[]interface{}{handler, "/signin", ""},
-			[]interface{}{map[string]interface{}{
+			[]any{handler, "/signin", ""},
+			[]any{map[string]any{
 				"err" : "JSON decoding failure",
 			}},
 		},
 		{
 			"Empty hash",
 			callURL,
-			[]interface{}{handler, "/signin", map[string]interface{}{}},
-			[]interface{}{map[string]interface{}{
+			[]any{handler, "/signin", map[string]any{}},
+			[]any{map[string]any{
 				"err" : "Password too small",
 			}},
 		},
 		{
 			"Password only",
 			callURL,
-			[]interface{}{handler, "/signin", map[string]interface{}{
+			[]any{handler, "/signin", map[string]any{
 				"passwd" : "1234567890",
 			}},
-			[]interface{}{map[string]interface{}{
+			[]any{map[string]any{
 				"err" : "Name too small",
 			}},
 		},
 		{
 			"Missing email",
 			callURL,
-			[]interface{}{handler, "/signin", map[string]interface{}{
+			[]any{handler, "/signin", map[string]any{
 				"passwd" : "1234567890",
 				"name"   : "abc",
 			}},
-			[]interface{}{map[string]interface{}{
+			[]any{map[string]any{
 				"err" : "Email too small",
 			}},
 		},
@@ -172,12 +176,12 @@ func TestSignin(t *testing.T) {
 		{
 			"Invalid email",
 			callURL,
-			[]interface{}{handler, "/signin", map[string]interface{}{
+			[]any{handler, "/signin", map[string]any{
 				"passwd" : "1234567890",
 				"name"   : "abc",
 				"email"  : "whatever",
 			}},
-			[]interface{}{map[string]interface{}{
+			[]any{map[string]any{
 //				"err" : "Invalid email address",
 				"err" : "JSON decoding failure",
 			}},
@@ -185,35 +189,35 @@ func TestSignin(t *testing.T) {
 		{
 			"Valid password/name/email",
 			callURL,
-			[]interface{}{handler, "/signin", map[string]interface{}{
+			[]any{handler, "/signin", map[string]any{
 				"passwd" : "1234567890",
 				"name"   : "abc",
 				"email"  : "a@b",
 			}},
-			[]interface{}{map[string]interface{}{
+			[]any{map[string]any{
 			}},
 		},
 		{
 			"Existing email address",
 			callURL,
-			[]interface{}{handler, "/signin", map[string]interface{}{
+			[]any{handler, "/signin", map[string]any{
 				"passwd" : "1234567890",
 				"name"   : "abc",
 				"email"  : "a@b",
 			}},
-			[]interface{}{map[string]interface{}{
+			[]any{map[string]any{
 				"err"    : "Email already used",
 			}},
 		},
 		{
 			"Existing username",
 			callURL,
-			[]interface{}{handler, "/signin", map[string]interface{}{
+			[]any{handler, "/signin", map[string]any{
 				"passwd" : "1234567890",
 				"name"   : "abc",
 				"email"  : "a@bc",
 			}},
-			[]interface{}{map[string]interface{}{
+			[]any{map[string]any{
 				"err"    : "Username already used",
 			}},
 		},
@@ -225,50 +229,50 @@ func TestSignin(t *testing.T) {
 func TestLoginLogout(t *testing.T) {
 	init2()
 
-	doTests(t, []test{
+	ftests.Run(t, []ftests.Test{
 		{
 			"Invalid input",
 			callURL,
-			[]interface{}{handler, "/login", ""},
-			[]interface{}{map[string]interface{}{
+			[]any{handler, "/login", ""},
+			[]any{map[string]any{
 				"err" : "JSON decoding failure",
 			}},
 		},
 		{
 			"Invalid login",
 			callURL,
-			[]interface{}{handler, "/login", map[string]interface{}{
+			[]any{handler, "/login", map[string]any{
 				"login"  : "whatever",
 			}},
-			[]interface{}{map[string]interface{}{
-				"err" : "Invalid login or password",
+			[]any{map[string]any{
+				"err" : "Invalid username or email",
 			}},
 		},
 		{
 			"Register account to later use for login",
 			callURL,
-			[]interface{}{handler, "/signin", map[string]interface{}{
+			[]any{handler, "/signin", map[string]any{
 				"passwd" : "1234567890",
 				"name"   : "test",
 				"email"  : "test@test.com",
 			}},
-			[]interface{}{map[string]interface{}{
+			[]any{map[string]any{
 			}},
 		},
 		{
 			"Valid user, no password, no verified email",
 			callURL,
-			[]interface{}{handler, "/login", map[string]interface{}{
+			[]any{handler, "/login", map[string]any{
 				"login"  : "test",
 			}},
-			[]interface{}{map[string]interface{}{
-				"err" : "Email not verified",
+			[]any{map[string]any{
+				"err" : "Invalid login or password",
 			}},
 		},
 		{
 			"Logging out a logged out user",
 			callURL,
-			[]interface{}{handler, "/logout", map[string]interface{}{
+			[]any{handler, "/logout", map[string]any{
 				// Dummy, but correctly formatted/encrypted
 				"token"  : "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"+
 					".eyJkYXRlIjoxNjc5NzkzMDM4LCJuYW1lIjoidGVzdCIs"+
@@ -276,18 +280,18 @@ func TestLoginLogout(t *testing.T) {
 					"1DajFoakszd2VhUTJnaWVzV1NUdzJKZnNzRnpDc0pHYmp4UUtjIn0"+
 					".iVU2Q99JAbuAM-dZQS2w5eP5y3MmKDC7Qwj3Z7CWbWk",
 			}},
-			[]interface{}{map[string]interface{}{
+			[]any{map[string]any{
 				"err" : "Not connected!",
 			}},
 		},
 		{
 			"Valid user/password",
 			callURLWithToken,
-			[]interface{}{handler, "/login", map[string]interface{}{
+			[]any{handler, "/login", map[string]any{
 				"login"  : "test",
 				"passwd" : "1234567890",
 			}},
-			[]interface{}{map[string]interface{}{
+			[]any{map[string]any{
 				"token" : jwt.MapClaims{
 					"date" : 0,          // redacted to ease tests
 					"uniq" : "redacted", // idem
@@ -296,15 +300,15 @@ func TestLoginLogout(t *testing.T) {
 			}},
 		},
 	})
-	doTests(t, []test{
+	ftests.Run(t, []ftests.Test{
 		{
 			"Logging out a logged in user",
 			callURL,
-			[]interface{}{handler, "/logout", map[string]interface{}{
+			[]any{handler, "/logout", map[string]any{
 				// This is arbitrary, but signed
 				"token"  : tokenStr,
 			}},
-			[]interface{}{map[string]interface{}{
+			[]any{map[string]any{
 			}},
 		},
 	})
@@ -313,44 +317,44 @@ func TestLoginLogout(t *testing.T) {
 func TestSignout(t *testing.T) {
 	init2()
 
-	doTests(t, []test{
+	ftests.Run(t, []ftests.Test{
 		{
 			"Invalid input",
 			callURL,
-			[]interface{}{handler, "/signout", ""},
-			[]interface{}{map[string]interface{}{
+			[]any{handler, "/signout", ""},
+			[]any{map[string]any{
 				"err" : "JSON decoding failure",
 			}},
 		},
 		{
 			"Invalid token",
 			callURL,
-			[]interface{}{handler, "/signout", map[string]interface{}{
+			[]any{handler, "/signout", map[string]any{
 				"token"  : "whatever",
 			}},
-			[]interface{}{map[string]interface{}{
+			[]any{map[string]any{
 				"err" : errSegment,
 			}},
 		},
 		{
 			"Register account to later use for login",
 			callURL,
-			[]interface{}{handler, "/signin", map[string]interface{}{
+			[]any{handler, "/signin", map[string]any{
 				"passwd" : "1234567890",
 				"name"   : "test",
 				"email"  : "test@test.com",
 			}},
-			[]interface{}{map[string]interface{}{
+			[]any{map[string]any{
 			}},
 		},
 		{
 			"Valid user/password",
 			callURLWithToken,
-			[]interface{}{handler, "/login", map[string]interface{}{
+			[]any{handler, "/login", map[string]any{
 				"login"  : "test",
 				"passwd" : "1234567890",
 			}},
-			[]interface{}{map[string]interface{}{
+			[]any{map[string]any{
 				"token" : jwt.MapClaims{
 					"date" : 0,          // redacted to ease tests
 					"uniq" : "redacted", // idem
@@ -361,25 +365,25 @@ func TestSignout(t *testing.T) {
 	})
 
 	// Must be declared after tokenStr has been set
-	doTests(t, []test{
+	ftests.Run(t, []ftests.Test{
 		{
 			"Valid user/token (correct signout)",
 			callURL,
-			[]interface{}{handler, "/signout", map[string]interface{}{
+			[]any{handler, "/signout", map[string]any{
 				"token"  : tokenStr,
 			}},
-			[]interface{}{map[string]interface{}{
+			[]any{map[string]any{
 			}},
 		},
 		{
 			"Valid user/password, but deleted user",
 			callURL,
-			[]interface{}{handler, "/login", map[string]interface{}{
+			[]any{handler, "/login", map[string]any{
 				"login"  : "test",
 				"passwd" : "1234567890",
 			}},
-			[]interface{}{map[string]interface{}{
-				"err" : "Invalid login or password",
+			[]any{map[string]any{
+				"err" : "Invalid username or email",
 			}},
 		},
 	})
@@ -388,44 +392,44 @@ func TestSignout(t *testing.T) {
 func TestChain(t *testing.T) {
 	init2()
 
-	doTests(t, []test{
+	ftests.Run(t, []ftests.Test{
 		{
 			"Invalid input",
 			callURL,
-			[]interface{}{handler, "/chain", ""},
-			[]interface{}{map[string]interface{}{
+			[]any{handler, "/chain", ""},
+			[]any{map[string]any{
 				"err" : "JSON decoding failure",
 			}},
 		},
 		{
 			"Invalid token",
 			callURL,
-			[]interface{}{handler, "/chain", map[string]interface{}{
+			[]any{handler, "/chain", map[string]any{
 				"token"  : "whatever",
 			}},
-			[]interface{}{map[string]interface{}{
+			[]any{map[string]any{
 				"err" : errSegment,
 			}},
 		},
 		{
 			"Register account to later use for login",
 			callURL,
-			[]interface{}{handler, "/signin", map[string]interface{}{
+			[]any{handler, "/signin", map[string]any{
 				"passwd" : "1234567890",
 				"name"   : "test",
 				"email"  : "test@test.com",
 			}},
-			[]interface{}{map[string]interface{}{
+			[]any{map[string]any{
 			}},
 		},
 		{
 			"Valid user/password",
 			callURLWithToken,
-			[]interface{}{handler, "/login", map[string]interface{}{
+			[]any{handler, "/login", map[string]any{
 				"login"  : "test",
 				"passwd" : "1234567890",
 			}},
-			[]interface{}{map[string]interface{}{
+			[]any{map[string]any{
 				"token" : jwt.MapClaims{
 					"date" : 0,          // redacted to ease tests
 					"uniq" : "redacted", // idem
@@ -436,14 +440,14 @@ func TestChain(t *testing.T) {
 	})
 
 	// Must be declared after tokenStr has been set
-	doTests(t, []test{
+	ftests.Run(t, []ftests.Test{
 		{
 			"Valid token",
 			callURLWithToken,
-			[]interface{}{handler, "/chain", map[string]interface{}{
+			[]any{handler, "/chain", map[string]any{
 				"token"  : tokenStr,
 			}},
-			[]interface{}{map[string]interface{}{
+			[]any{map[string]any{
 				"token" : jwt.MapClaims{
 					"date" : 0,          // redacted to ease tests
 					"uniq" : "redacted", // idem
@@ -454,14 +458,14 @@ func TestChain(t *testing.T) {
 	})
 
 	// Must be declared after tokenStr has been set
-	doTests(t, []test{
+	ftests.Run(t, []ftests.Test{
 		{
 			"Valid token (bis)",
 			callURLWithToken,
-			[]interface{}{handler, "/chain", map[string]interface{}{
+			[]any{handler, "/chain", map[string]any{
 				"token"  : tokenStr,
 			}},
-			[]interface{}{map[string]interface{}{
+			[]any{map[string]any{
 				"token" : jwt.MapClaims{
 					"date" : 0,          // redacted to ease tests
 					"uniq" : "redacted", // idem
@@ -476,26 +480,26 @@ func TestChain(t *testing.T) {
 func TestTweaking(t *testing.T) {
 	init2()
 
-	doTests(t, []test{
+	ftests.Run(t, []ftests.Test{
 		{
 			"Register account to later use for login",
 			callURL,
-			[]interface{}{handler, "/signin", map[string]interface{}{
+			[]any{handler, "/signin", map[string]any{
 				"passwd" : "1234567890",
 				"name"   : "test",
 				"email"  : "test@test.com",
 			}},
-			[]interface{}{map[string]interface{}{
+			[]any{map[string]any{
 			}},
 		},
 		{
 			"Valid user/password",
 			callURLWithToken,
-			[]interface{}{handler, "/login", map[string]interface{}{
+			[]any{handler, "/login", map[string]any{
 				"login"  : "test",
 				"passwd" : "1234567890",
 			}},
-			[]interface{}{map[string]interface{}{
+			[]any{map[string]any{
 				"token" : jwt.MapClaims{
 					"date" : 0,          // redacted to ease tests
 					"uniq" : "redacted", // idem
@@ -510,14 +514,14 @@ func TestTweaking(t *testing.T) {
 		`{"name" : "someoneelse", "date" : "random", "uniq": "maybe" }`,
 	))
 	tokenStr = xs[0]+"."+xs1+"."+xs[2]
-	doTests(t, []test{
+	ftests.Run(t, []ftests.Test{
 		{
 			"Valid token",
 			callURL,
-			[]interface{}{handler, "/chain", map[string]interface{}{
+			[]any{handler, "/chain", map[string]any{
 				"token"  : tokenStr,
 			}},
-			[]interface{}{map[string]interface{}{
+			[]any{map[string]any{
 				"err" : errSignature,
 			}},
 		},

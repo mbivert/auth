@@ -58,10 +58,16 @@ type ChainOut struct {
 	Token  string `json:"token"`
 }
 
+// NOTE/XXX: This is a "special" token, not the usual JWT
+// token. Perhaps we could still use a JWT token here too.
 type VerifyIn struct {
+	Token string `json:"token"`
 }
 
+// Now this is a genuine token: upon success, we're also
+// logging-in the user.
 type VerifyOut struct {
+	Token string `json:"token"`
 }
 
 // For edition to be successful:

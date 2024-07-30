@@ -12,6 +12,7 @@ import (
 	"time"
 	"log"
 	jwt "github.com/golang-jwt/jwt/v5"
+	"github.com/mbivert/ftests"
 )
 
 func init() {
@@ -35,12 +36,12 @@ func newParseToken(name string, date int64, uniq string) jwt.MapClaims {
 func TestNewParseToken(t *testing.T) {
 	date := time.Now().Unix()
 
-	doTests(t, []test{
+	ftests.Run(t, []ftests.Test{
 		{
 			"token creation",
 			newParseToken,
-			[]interface{}{"username", date, "one-time-value"},
-			[]interface{}{jwt.MapClaims{
+			[]any{"username", date, "one-time-value"},
+			[]any{jwt.MapClaims{
 				"name" : "username",
 				"uniq" : "one-time-value",
 				"date" : float64(date),
@@ -75,16 +76,16 @@ func TestCheckToken(t *testing.T) {
 	before := time.Now().Unix() + C.Timeout
 	after  := time.Now().Unix() + 2*C.Timeout
 
-	doTests(t, []test{
+	ftests.Run(t, []ftests.Test{
 		{
 			"basic token chaining",
 			newChainParseToken,
-			[]interface{}{
+			[]any{
 				"username", before, after,
 				"one-time-value",
 				"another-one-time-value",
 			},
-			[]interface{}{jwt.MapClaims{
+			[]any{jwt.MapClaims{
 				"name" : "username",
 				"uniq" : "another-one-time-value",
 				"date" : float64(after),
