@@ -103,13 +103,19 @@ func (db *DB) GetUser(u *auth.User) error {
 	db.Lock()
 	defer db.Unlock()
 
+	verified := 0
+
 	// TODO: clarify exec vs. query (is there a prepare here?)
 	err := db.QueryRow(`SELECT
-			name, email, passwd
+			name, email, passwd, verified
 		FROM users WHERE
 			name  = $1
 		OR  email = $2
-	`, u.Name, u.Email).Scan(&u.Name, &u.Email, &u.Passwd)
+	`, u.Name, u.Email).Scan(&u.Name, &u.Email, &u.Passwd, &verified)
+
+	if verified > 0 {
+		u.Verified = true
+	}
 
 	// Improve error message
 	if errors.Is(err, sql.ErrNoRows) {
