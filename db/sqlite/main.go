@@ -72,8 +72,7 @@ func (db *DB) AddUser(u *auth.User) error {
 	return err
 }
 
-// XXX Enable vs. Verify
-func (db *DB) VerifyUser(u *auth.User) error {
+func (db *DB) VerifyUser(name string) error {
 	db.Lock()
 	defer db.Unlock()
 
@@ -85,16 +84,13 @@ func (db *DB) VerifyUser(u *auth.User) error {
 		SET
 			verified = $1
 		WHERE
-			name  = $1
-		AND email = $2
-	`, true, u.Name, u.Email)
+			name  = $2
+	`, 1, name)
 
-	// Improve error message
+	// TODO Improve error message
 	if errors.Is(err, sql.ErrNoRows) {
 		err = fmt.Errorf("Invalid login or password")
 	}
-
-	u.Verified = true
 
 	return err
 }
@@ -113,7 +109,7 @@ func (db *DB) GetUser(u *auth.User) error {
 		OR  email = $2
 	`, u.Name, u.Email).Scan(&u.Name, &u.Email, &u.Passwd, &verified)
 
-	if verified > 0 {
+	if err == nil && verified > 0 {
 		u.Verified = true
 	}
 

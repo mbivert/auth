@@ -148,6 +148,6 @@ func ChainToken(str string) (string, error) {
 
 func ClearUser(name string) {
 	uniqsMu.Lock()
+	defer uniqsMu.Unlock()
 	delete(uniqs, name)
-	uniqsMu.Unlock()
 }

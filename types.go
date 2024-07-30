@@ -7,7 +7,7 @@ import (
 // implemented by sqlite/main.go; used at least for tests
 type DB interface {
 	AddUser(*auth.User) error
-	VerifyUser(*auth.User) error // verified email ownership
+	VerifyUser(string) error // verified email ownership
 	GetUser(*auth.User) error
 	RmUser(string) (string, error)
 	EditUser() error

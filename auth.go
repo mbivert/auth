@@ -9,12 +9,38 @@ import (
 	"encoding/json"
 	"golang.org/x/crypto/bcrypt"
 	"errors"
-//	"sync"
+	"sync"
 	auth "github.com/mbivert/auth/user"
 )
 
+// TODO: timeout
 var verifs   = map[string]string{}
-// var verifsMu = &sync.Mutex
+var verifsMu sync.Mutex
+
+func mkVerifTok(name string) string {
+	verifsMu.Lock()
+	defer verifsMu.Unlock()
+	var tok string
+	for {
+		// XXX another constant perhaps?
+		tok = randString(C.LenUniq)
+		if _, ok := verifs[tok]; !ok {
+			break
+		}
+	}
+	verifs[tok] = name
+	return tok
+}
+
+func tryVerifTok(tok string) string {
+	verifsMu.Lock()
+	defer verifsMu.Unlock()
+	if name, ok := verifs[tok]; ok {
+		delete(verifs, tok)
+		return name
+	}
+	return ""
+}
 
 func (e *Email) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &e.string); err != nil {
@@ -129,10 +155,12 @@ func signin(
 		return err
 	}
 
+	tok := mkVerifTok(in.Name)
+
 	// TODO: send an email to the specified address.
 	// If so, we'll want to add a timer/restrictions to avoid
-	// being used to spam people. (Only allow n /signin per 24h
-	// at fw level?)
+	// being used to spam people. (e.g. allow n /signin per 24h at most)
+	fmt.Println(tok)
 
 	// TODO: also, have a way to automatically remove
 	// unverified accounts periodically.
@@ -153,7 +181,7 @@ func login(
 	}
 
 	if !u.Verified {
-		return fmt.Errorf("User disabled (email ownership not verified?)")
+		return fmt.Errorf("Email not verified")
 	}
 
 	// constant time
@@ -239,14 +267,6 @@ func edit(
 	return nil
 }
 
-func verify(
-	db DB, w http.ResponseWriter,
-	r *http.Request, in *VerifyIn, out *VerifyOut,
-) (err error) {
-	r.URL.Query().Get("token")
-	return nil
-}
-
 // For quick tests: curl -X POST -d '{"Name": "user" }' localhost:7070/signin
 func New(db DB) *http.ServeMux {
 	mux := http.NewServeMux()
@@ -267,7 +287,20 @@ func New(db DB) *http.ServeMux {
 	mux.HandleFunc("/logout",  wrap[LogoutIn,  LogoutOut](db, logout))
 
 	// email ownership verification upon signin
-	mux.HandleFunc("/verify",  wrap[VerifyIn,  VerifyOut](db, verify))
+//	mux.HandleFunc("/verify",  wrap[VerifyIn,  VerifyOut](db, verify))
+
+	// inlined to ease DB access; we don't need wrap() here
+	mux.HandleFunc("/verify",  func(w http.ResponseWriter, r *http.Request) {
+		token := r.URL.Query().Get("token")
+		if name := tryVerifTok(token); name != "" {
+			if err := db.VerifyUser(name); err != nil {
+				http.Error(w, "bad token", http.StatusBadRequest)
+			} else {
+				// XXX URL should be configurable
+				http.Redirect(w, r, "/?verified=true", http.StatusSeeOther)
+			}
+		}
+	})
 
 	// Password/email edition
 	mux.HandleFunc("/edit",    wrap[EditIn,    EditOut](db, edit))

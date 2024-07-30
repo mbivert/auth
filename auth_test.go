@@ -46,6 +46,17 @@ func init2() {
 	handler = New(db)
 }
 
+func getVerifTokFor(name string) string {
+	verifsMu.Lock()
+	defer verifsMu.Unlock()
+	for k, v := range verifs {
+		if v == name {
+			return k
+		}
+	}
+	return ""
+}
+
 func callURL(handler http.Handler, url string, args interface{}) interface{} {
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
@@ -245,13 +256,13 @@ func TestLoginLogout(t *testing.T) {
 			}},
 		},
 		{
-			"Valid user, no password",
+			"Valid user, no password, no verified email",
 			callURL,
 			[]interface{}{handler, "/login", map[string]interface{}{
 				"login"  : "test",
 			}},
 			[]interface{}{map[string]interface{}{
-				"err" : "Invalid login or password",
+				"err" : "Email not verified",
 			}},
 		},
 		{
