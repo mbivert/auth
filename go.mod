@@ -7,6 +7,6 @@ require (
 	golang.org/x/crypto v0.25.0
 )
 
-require github.com/mattn/go-sqlite3 v1.14.16
+require github.com/mattn/go-sqlite3 v1.14.22
 
-require github.com/mbivert/ftests v0.0.0-20240730202103-8406b345f8c7 // indirect
+require github.com/mbivert/ftests v1.0.0

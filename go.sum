@@ -1,8 +1,8 @@
 github.com/golang-jwt/jwt/v5 v5.2.1 h1:OuVbFODueb089Lh128TAcimifWaLhJwVflnrgM17wHk=
 github.com/golang-jwt/jwt/v5 v5.2.1/go.mod h1:pqrtFR0X4osieyHYxtmOUWsAWrfe1Q5UVIyoH402zdk=
-github.com/mattn/go-sqlite3 v1.14.16 h1:yOQRA0RpS5PFz/oikGwBEqvAWhWg5ufRz4ETLjwpU1Y=
-github.com/mattn/go-sqlite3 v1.14.16/go.mod h1:2eHXhiwb8IkHr+BDWZGa96P6+rkvnG63S2DGjv9HUNg=
-github.com/mbivert/ftests v0.0.0-20240730202103-8406b345f8c7 h1:Lx6HJlAfaKS5oF9lcEjJFotT1kKySTbsO6BUtiqGDEo=
-github.com/mbivert/ftests v0.0.0-20240730202103-8406b345f8c7/go.mod h1:TavuW1VtBN05BV0QcUKua45z4bggEdsihxpBdqJABHc=
+github.com/mattn/go-sqlite3 v1.14.22 h1:2gZY6PC6kBnID23Tichd1K+Z0oS6nE/XwU+Vz/5o4kU=
+github.com/mattn/go-sqlite3 v1.14.22/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=
+github.com/mbivert/ftests v1.0.0 h1:WS+k5h1ld9iLtmakNZnZegD1adE4oIPAx37qU2Icdtg=
+github.com/mbivert/ftests v1.0.0/go.mod h1:TavuW1VtBN05BV0QcUKua45z4bggEdsihxpBdqJABHc=
 golang.org/x/crypto v0.25.0 h1:ypSNr+bnYL2YhwoMt2zPxHFmbAN1KZs/njMG3hxUp30=
 golang.org/x/crypto v0.25.0/go.mod h1:T+wALwcMOSE0kXgUAnPAHqTLW+XHgcELELW8VaDgm/M=
