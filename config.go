@@ -1,11 +1,13 @@
 package auth
 
+// TODO: to be tested; in particular, the errors from LoadConf
+
 import (
 	"encoding/json"
 	"io/ioutil"
-	"log"
 	"crypto/ecdsa"
 	jwt "github.com/golang-jwt/jwt/v5"
+	"fmt"
 )
 
 type Config struct {
@@ -27,15 +29,15 @@ var C Config
 var publicKey  *ecdsa.PublicKey
 var privateKey *ecdsa.PrivateKey
 
-func LoadKeys() {
+func LoadKeys() error {
 	pub, err := ioutil.ReadFile(C.PublicKey)
 	if err != nil {
-		log.Fatal("Cannot load public key", err)
+		return fmt.Errorf("Cannot load public key: %s", err)
 	}
 
 	priv, err := ioutil.ReadFile(C.PrivateKey)
 	if err != nil {
-		log.Fatal("Cannot load private key", err)
+		return fmt.Errorf("Cannot load private key: %s", err)
 	}
 
 	// For clarity (but also used to check which one to use)
@@ -43,29 +45,43 @@ func LoadKeys() {
 
 	privateKey, err = jwt.ParseECPrivateKeyFromPEM(priv)
 	if err != nil {
-		log.Fatal("Private key (.pem) parsing error", err)
+		return fmt.Errorf("Private key (.pem) parsing error: %s", err)
 	}
 
 	publicKey, err = jwt.ParseECPublicKeyFromPEM(pub)
 	if err != nil {
-		log.Fatal("Public key parsing error", err)
+		return fmt.Errorf("Public key parsing error: %s", err)
 	}
+
+	return nil
 }
 
-func LoadConf(fn string) {
+func LoadConf(fn string) error {
 	x, err := ioutil.ReadFile(fn)
 	if err != nil {
-		log.Fatal("Cannot read configuration file: ", err)
+		return fmt.Errorf("Cannot read configuration file: %s", err)
 	}
 
 	if err := json.Unmarshal(x, &C); err != nil {
-		log.Fatal("Error while parsing configuration file: ", err)
+		return fmt.Errorf("Error while parsing configuration file: %s", err)
 	}
 
 	if C.PrivateKey != "" {
-		LoadKeys()
+		if err := LoadKeys(); err != nil {
+			return err
+		}
+	}
+
+	if C.HMAC == "" && C.PrivateKey == "" {
+		return fmt.Errorf("At least a HMAC or a PrivateKey must be specified")
+	}
+
+	// XXX we may even want to not allow below a certain threshold here
+	if C.LenUniq == 0 {
+		return fmt.Errorf("LenUniq unconfigured ?")
 	}
 
 	// No further checking:
 	//	Wrong configuration => undefined behavior.
+	return nil
 }

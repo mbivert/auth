@@ -15,7 +15,9 @@ import (
 )
 
 func init() {
-	LoadConf("config.json.base")
+	if err := LoadConf("config.json.base"); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func newParseToken(name string, date int64, uniq string) jwt.MapClaims {

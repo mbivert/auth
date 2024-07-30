@@ -25,7 +25,9 @@ var errSegment = jwt.ErrTokenMalformed.Error()+": token contains an invalid numb
 var errSignature = jwt.ErrTokenSignatureInvalid.Error()+": signature is invalid"
 
 func init() {
-	LoadConf("config.json.base")
+	if err := LoadConf("config.json.base"); err != nil {
+		log.Fatal(err)
+	}
 }
 
 // Individual tests rely on a ~fresh DB; "init()" cannot be
