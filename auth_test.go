@@ -13,7 +13,6 @@ import (
 	"os"
 //	"io/ioutil"
 	"net/http/httptest"
-	"github.com/mbivert/auth/db/sqlite"
 	jwt "github.com/golang-jwt/jwt/v5"
 	"encoding/base64"
 	"github.com/mbivert/ftests"
@@ -33,17 +32,18 @@ func init() {
 
 // Individual tests rely on a ~fresh DB; "init()" cannot be
 // called directly.
-func init2() {
+func initauthtest() {
 	dbfn := "./db_test.sqlite"
 	err := os.RemoveAll(dbfn) // won't complain if dbfn doesn't exist
 	if err != nil {
 		log.Fatal(err)
 	}
-	db, err := sqlite.New(dbfn)
+	db, err := NewSQLite(dbfn)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	// XXX s/New/NewAuth/ ?
 	handler = New(db)
 
 	// XXX/NOTE: for now, all tests require verification to be disabled.
@@ -131,7 +131,7 @@ func callURLWithToken(handler http.Handler, url string, args any) any {
 }
 
 func TestSignin(t *testing.T) {
-	init2()
+	initauthtest()
 
 	ftests.Run(t, []ftests.Test{
 		{
@@ -186,15 +186,21 @@ func TestSignin(t *testing.T) {
 				"err" : "JSON decoding failure",
 			}},
 		},
+		// Assuming NoVerif = true here
 		{
 			"Valid password/name/email",
-			callURL,
+			callURLWithToken,
 			[]any{handler, "/signin", map[string]any{
 				"passwd" : "1234567890",
 				"name"   : "abc",
 				"email"  : "a@b",
 			}},
 			[]any{map[string]any{
+				"token" : jwt.MapClaims{
+					"date" : 0,          // redacted to ease tests
+					"uniq" : "redacted", // idem
+					"name" : "abc",
+				},
 			}},
 		},
 		{
@@ -227,7 +233,7 @@ func TestSignin(t *testing.T) {
 }
 
 func TestLoginLogout(t *testing.T) {
-	init2()
+	initauthtest()
 
 	ftests.Run(t, []ftests.Test{
 		{
@@ -248,15 +254,21 @@ func TestLoginLogout(t *testing.T) {
 				"err" : "Invalid username or email",
 			}},
 		},
+		// Assuming NoVerif = true here
 		{
 			"Register account to later use for login",
-			callURL,
+			callURLWithToken,
 			[]any{handler, "/signin", map[string]any{
 				"passwd" : "1234567890",
 				"name"   : "test",
 				"email"  : "test@test.com",
 			}},
 			[]any{map[string]any{
+				"token" : jwt.MapClaims{
+					"date" : 0,          // redacted to ease tests
+					"uniq" : "redacted", // idem
+					"name" : "test",
+				},
 			}},
 		},
 		{
@@ -315,7 +327,7 @@ func TestLoginLogout(t *testing.T) {
 }
 
 func TestSignout(t *testing.T) {
-	init2()
+	initauthtest()
 
 	ftests.Run(t, []ftests.Test{
 		{
@@ -338,13 +350,18 @@ func TestSignout(t *testing.T) {
 		},
 		{
 			"Register account to later use for login",
-			callURL,
+			callURLWithToken,
 			[]any{handler, "/signin", map[string]any{
 				"passwd" : "1234567890",
 				"name"   : "test",
 				"email"  : "test@test.com",
 			}},
 			[]any{map[string]any{
+				"token" : jwt.MapClaims{
+					"date" : 0,          // redacted to ease tests
+					"uniq" : "redacted", // idem
+					"name" : "test",
+				},
 			}},
 		},
 		{
@@ -390,7 +407,7 @@ func TestSignout(t *testing.T) {
 }
 
 func TestChain(t *testing.T) {
-	init2()
+	initauthtest()
 
 	ftests.Run(t, []ftests.Test{
 		{
@@ -413,13 +430,18 @@ func TestChain(t *testing.T) {
 		},
 		{
 			"Register account to later use for login",
-			callURL,
+			callURLWithToken,
 			[]any{handler, "/signin", map[string]any{
 				"passwd" : "1234567890",
 				"name"   : "test",
 				"email"  : "test@test.com",
 			}},
 			[]any{map[string]any{
+				"token" : jwt.MapClaims{
+					"date" : 0,          // redacted to ease tests
+					"uniq" : "redacted", // idem
+					"name" : "test",
+				},
 			}},
 		},
 		{
@@ -478,18 +500,23 @@ func TestChain(t *testing.T) {
 
 // Ensure jwt lib signing does work as expected
 func TestTweaking(t *testing.T) {
-	init2()
+	initauthtest()
 
 	ftests.Run(t, []ftests.Test{
 		{
 			"Register account to later use for login",
-			callURL,
+			callURLWithToken,
 			[]any{handler, "/signin", map[string]any{
 				"passwd" : "1234567890",
 				"name"   : "test",
 				"email"  : "test@test.com",
 			}},
 			[]any{map[string]any{
+				"token" : jwt.MapClaims{
+					"date" : 0,          // redacted to ease tests
+					"uniq" : "redacted", // idem
+					"name" : "test",
+				},
 			}},
 		},
 		{

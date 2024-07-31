@@ -1,4 +1,4 @@
-package sqlite
+package auth
 
 // implements auth.DB (../../types.go:/type DB interface);
 // indirectly tested via ../../auth_test.go
@@ -8,28 +8,27 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	auth "github.com/mbivert/auth/user"
 	_ "github.com/mattn/go-sqlite3"
 )
 
-type DB struct {
+type SQLiteDB struct {
 	*sql.DB
 	*sync.Mutex
 }
 
-func New(path string) (*DB, error) {
+func NewSQLite(path string) (*SQLiteDB, error) {
 	db, err := sql.Open("sqlite3", "file:"+path)
 
 	if err != nil {
 		return nil, err
 	}
 
-	sdb := &DB{db,&sync.Mutex{}}
+	sdb := &SQLiteDB{db,&sync.Mutex{}}
 
 	return sdb, sdb.AddTable()
 }
 
-func (db *DB) AddTable() error {
+func (db *SQLiteDB) AddTable() error {
 	db.Lock()
 	defer db.Unlock()
 
@@ -49,7 +48,7 @@ func (db *DB) AddTable() error {
 // XXX/TODO: we're probably leaking email address bytes
 // https://www.usenix.org/system/files/sec21-shahverdi.pdf also
 // https://faculty.cc.gatech.edu/~orso/papers/halfond.viegas.orso.ISSSE06.pdf
-func (db *DB) AddUser(u *auth.User) error {
+func (db *SQLiteDB) AddUser(u *User) error {
 	db.Lock()
 	defer db.Unlock()
 
@@ -74,7 +73,7 @@ func (db *DB) AddUser(u *auth.User) error {
 
 // Okay so we're checking the user via its name; could it be
 // convenient to also allow to do it via email?
-func (db *DB) VerifyUser(name string) error {
+func (db *SQLiteDB) VerifyUser(name string) error {
 	db.Lock()
 	defer db.Unlock()
 
@@ -104,7 +103,7 @@ func (db *DB) VerifyUser(name string) error {
 }
 
 // XXX/TODO: any reasons for not (also) returning u?
-func (db *DB) GetUser(u *auth.User) error {
+func (db *SQLiteDB) GetUser(u *User) error {
 	db.Lock()
 	defer db.Unlock()
 
@@ -130,7 +129,7 @@ func (db *DB) GetUser(u *auth.User) error {
 	return err
 }
 
-func (db *DB) RmUser(name string) (email string, err error) {
+func (db *SQLiteDB) RmUser(name string) (email string, err error) {
 	db.Lock()
 	defer db.Unlock()
 
@@ -144,6 +143,6 @@ func (db *DB) RmUser(name string) (email string, err error) {
 	return email, err
 }
 
-func (db *DB) EditUser() error {
+func (db *SQLiteDB) EditUser() error {
 	return fmt.Errorf("TODO")
 }

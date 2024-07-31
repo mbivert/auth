@@ -1,4 +1,4 @@
-package sqlite
+package auth
 
 // NOTE: there's little reasons for this test file not to
 // work for any other databases (e.g. PostgreSQL) in the future,
@@ -10,21 +10,20 @@ import (
 	"os"
 	"fmt"
 	"log"
-	auth "github.com/mbivert/auth/user"
 	"github.com/mbivert/ftests"
 )
 
-var db *DB
+var db *SQLiteDB
 
 // Individual tests rely on a ~fresh DB; "init()" cannot be
 // called directly.
-func init2() {
+func initsqlitetest() {
 	dbfn := "./db_test.sqlite"
 	err := os.RemoveAll(dbfn) // won't complain if dbfn doesn't exist
 	if err != nil {
 		log.Fatal(err)
 	}
-	db, err = New(dbfn)
+	db, err = NewSQLite(dbfn)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -32,7 +31,7 @@ func init2() {
 }
 
 func TestAddUser(t *testing.T) {
-	init2()
+	initsqlitetest()
 
 	now := time.Now().Unix()
 
@@ -40,7 +39,7 @@ func TestAddUser(t *testing.T) {
 		{
 			"'bad' user allowed: checks are externals",
 			db.AddUser,
-			[]interface{}{&auth.User{
+			[]interface{}{&User{
 				Id       : 0,
 				Name     : "t",
 				Email    : "t",
@@ -53,7 +52,7 @@ func TestAddUser(t *testing.T) {
 		{
 			"Can't have the same username twice",
 			db.AddUser,
-			[]interface{}{&auth.User{
+			[]interface{}{&User{
 				Id       : 0,
 				Name     : "t",
 				Email    : "t0",
@@ -66,7 +65,7 @@ func TestAddUser(t *testing.T) {
 		{
 			"Can't have the same email twice",
 			db.AddUser,
-			[]interface{}{&auth.User{
+			[]interface{}{&User{
 				Id       : 0,
 				Name     : "t0",
 				Email    : "t",
@@ -79,8 +78,8 @@ func TestAddUser(t *testing.T) {
 	})
 }
 
-func getUser(login string) (*auth.User, error) {
-	var u auth.User
+func getUser(login string) (*User, error) {
+	var u User
 	u.Name  = login
 	u.Email = login
 	if err := db.GetUser(&u); err != nil {
@@ -90,7 +89,7 @@ func getUser(login string) (*auth.User, error) {
 }
 
 func TestVerifyUser(t *testing.T) {
-	init2()
+	initsqlitetest()
 
 	now := time.Now().Unix()
 
@@ -100,7 +99,7 @@ func TestVerifyUser(t *testing.T) {
 		{
 			"Registering a random user",
 			db.AddUser,
-			[]interface{}{&auth.User{
+			[]interface{}{&User{
 				Id       : 0,
 				Name     : name,
 				Email    : "t0",
@@ -120,7 +119,7 @@ func TestVerifyUser(t *testing.T) {
 			"User has indeed been verified",
 			getUser,
 			[]interface{}{name},
-			[]interface{}{&auth.User{
+			[]interface{}{&User{
 				Id       : 0,
 				Name     : name,
 				Email    : "t0",
@@ -141,12 +140,12 @@ func TestVerifyUser(t *testing.T) {
 }
 
 func TestGetUser(t *testing.T) {
-	init2()
+	initsqlitetest()
 
 	now := time.Now().Unix()
 
 	// nil user pointer
-	var u *auth.User
+	var u *User
 
 	name  := "t"
 	email := "t0"
@@ -157,7 +156,7 @@ func TestGetUser(t *testing.T) {
 		{
 			"Registering a random user",
 			db.AddUser,
-			[]interface{}{&auth.User{
+			[]interface{}{&User{
 				Id       : 0,
 				Name     : name,
 				Email    : email,
@@ -171,7 +170,7 @@ func TestGetUser(t *testing.T) {
 			"Retrieving user by name",
 			getUser,
 			[]interface{}{name},
-			[]interface{}{&auth.User{
+			[]interface{}{&User{
 				Id       : 0,
 				Name     : name,
 				Email    : email,
@@ -184,7 +183,7 @@ func TestGetUser(t *testing.T) {
 			"Retrieving user by email",
 			getUser,
 			[]interface{}{email},
-			[]interface{}{&auth.User{
+			[]interface{}{&User{
 				Id       : 0,
 				Name     : name,
 				Email    : email,
@@ -205,12 +204,12 @@ func TestGetUser(t *testing.T) {
 }
 
 func TestRmUser(t *testing.T) {
-	init2()
+	initsqlitetest()
 
 	now := time.Now().Unix()
 
 	// nil user pointer
-	var u *auth.User
+	var u *User
 
 	name  := "t"
 
@@ -218,7 +217,7 @@ func TestRmUser(t *testing.T) {
 		{
 			"Registering a random user",
 			db.AddUser,
-			[]interface{}{&auth.User{
+			[]interface{}{&User{
 				Id       : 0,
 				Name     : name,
 				Email    : "t",

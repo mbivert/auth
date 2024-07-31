@@ -10,7 +10,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"errors"
 	"sync"
-	auth "github.com/mbivert/auth/user"
 )
 
 // TODO: timeout
@@ -132,6 +131,9 @@ func signin(
 	// encoding/json (just) manages basic JSON parsing, it's
 	// a bit simpler to do things here rather than extend
 	// the decoder up there
+	//
+	// Perhaps we'd want to have the full email check here too
+	// (the current error is clumsy "JSON parsing error" or so)
 	if len(in.Passwd) < 10 {
 		return fmt.Errorf("Password too small")
 	}
@@ -149,9 +151,14 @@ func signin(
 	}
 
 	// XXX rough/verbose error message
-	if err := db.AddUser(&auth.User{
+	if err := db.AddUser(&User{
 		0, in.Name, in.Email.string, in.Passwd, false, time.Now().UTC().Unix(),
 	}); err != nil {
+		return err
+	}
+
+	if C.NoVerif {
+		out.Token, err = NewToken(in.Name)
 		return err
 	}
 
@@ -173,7 +180,7 @@ func signin(
 func login(
 	db DB, w http.ResponseWriter, r *http.Request, in *LoginIn, out *LoginOut,
 ) error {
-	var u auth.User
+	var u User
 	u.Name  = in.Login
 	u.Email = in.Login
 	if err := db.GetUser(&u); err != nil {

@@ -1,16 +1,21 @@
 package auth
 
-import (
-	auth "github.com/mbivert/auth/user"
-)
-
 // implemented by sqlite/main.go; used at least for tests
 type DB interface {
-	AddUser(*auth.User) error
+	AddUser(*User) error
 	VerifyUser(string) error // verified email ownership
-	GetUser(*auth.User) error
+	GetUser(*User) error
 	RmUser(string) (string, error)
 	EditUser() error
+}
+
+type User struct {
+	Id       int64
+	Name     string
+	Email    string
+	Passwd   string
+	Verified bool
+	CDate    int64
 }
 
 // this is just so we can have a specific JSON
@@ -26,7 +31,9 @@ type SigninIn struct {
 	Email  Email  `json:"email"`
 }
 
-type SigninOut struct {}
+type SigninOut struct {
+	Token  string `json:"token"`
+}
 
 type LoginIn struct {
 	// Login is either a User.Name or a User.Email
