@@ -83,7 +83,7 @@ func fails(w http.ResponseWriter, err error) {
 
 // fancy
 func wrap[Tin, Tout any](
-	db DB, f func(db DB, in *Tin, out *Tout) error
+	db DB, f func(db DB, in *Tin, out *Tout) error,
 ) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var in Tin
@@ -124,7 +124,7 @@ func hash(passwd string) (string, error) {
 	return string(h), err
 }
 
-func signin(db DB, in *SigninIn, out *SigninOut,) error {
+func Signin(db DB, in *SigninIn, out *SigninOut) error {
 	// encoding/json (just) manages basic JSON parsing, it's
 	// a bit simpler to do things here rather than extend
 	// the decoder up there
@@ -174,7 +174,7 @@ func signin(db DB, in *SigninIn, out *SigninOut,) error {
 	return nil
 }
 
-func login(db DB, in *LoginIn, out *LoginOut) error {
+func Login(db DB, in *LoginIn, out *LoginOut) error {
 	var u User
 	u.Name = in.Login
 	u.Email = in.Login
@@ -200,7 +200,7 @@ func login(db DB, in *LoginIn, out *LoginOut) error {
 	return &intErr{err.Error()}
 }
 
-func signout(db DB, in *SignoutIn, out *SignoutOut) error {
+func Signout(db DB, in *SignoutIn, out *SignoutOut) error {
 	ok, name, err := IsValidToken(in.Token)
 	if err != nil {
 		return err
@@ -215,12 +215,12 @@ func signout(db DB, in *SignoutIn, out *SignoutOut) error {
 	return err
 }
 
-func chain(db DB, in *ChainIn, out *ChainOut) (err error) {
+func Chain(db DB, in *ChainIn, out *ChainOut) (err error) {
 	out.Token, err = ChainToken(in.Token)
 	return err
 }
 
-func logout(db DB, in *LogoutIn, out *LogoutOut) error {
+func Logout(db DB, in *LogoutIn, out *LogoutOut) error {
 	ok, name, err := IsValidToken(in.Token)
 	if err != nil {
 		return err
@@ -233,7 +233,7 @@ func logout(db DB, in *LogoutIn, out *LogoutOut) error {
 	return nil
 }
 
-func edit(db DB, in *EditIn, out *EditOut) (err error) {
+func Edit(db DB, in *EditIn, out *EditOut) (err error) {
 	out.Token, err = ChainToken(in.Token)
 	if err != nil {
 		return err
@@ -258,7 +258,7 @@ func edit(db DB, in *EditIn, out *EditOut) (err error) {
 	return nil
 }
 
-func verify(db DB, in *VerifyIn, out *VerifyOut) (err error) {
+func Verify(db DB, in *VerifyIn, out *VerifyOut) (err error) {
 	if name := tryVerifTok(in.Token); name != "" {
 		if err := db.VerifyUser(name); err != nil {
 			return fmt.Errorf("Can't verify user '%s': %s", name, err)
@@ -282,23 +282,23 @@ func New(db DB) *http.ServeMux {
 	// this with a shell script or whatnot.
 
 	// signin from an email/username/password
-	mux.HandleFunc("/signin", wrap[SigninIn, SigninOut](db, signin))
+	mux.HandleFunc("/signin", wrap[SigninIn, SigninOut](db, Signin))
 
-	mux.HandleFunc("/signout", wrap[SignoutIn, SignoutOut](db, signout))
+	mux.HandleFunc("/signout", wrap[SignoutIn, SignoutOut](db, Signout))
 
-	mux.HandleFunc("/login", wrap[LoginIn, LoginOut](db, login))
+	mux.HandleFunc("/login", wrap[LoginIn, LoginOut](db, Login))
 
 	// Check a token's validity/update it
-	mux.HandleFunc("/chain", wrap[ChainIn, ChainOut](db, chain))
+	mux.HandleFunc("/chain", wrap[ChainIn, ChainOut](db, Chain))
 
-	mux.HandleFunc("/logout", wrap[LogoutIn, LogoutOut](db, logout))
+	mux.HandleFunc("/logout", wrap[LogoutIn, LogoutOut](db, Logout))
 
 	// email ownership verification upon signin,
 	// followed by an automatic login.
-	mux.HandleFunc("/verify", wrap[VerifyIn, VerifyOut](db, verify))
+	mux.HandleFunc("/verify", wrap[VerifyIn, VerifyOut](db, Verify))
 
 	// Password/email edition
-	mux.HandleFunc("/edit", wrap[EditIn, EditOut](db, edit))
+	mux.HandleFunc("/edit", wrap[EditIn, EditOut](db, Edit))
 
 	return mux
 }

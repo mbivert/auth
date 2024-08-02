@@ -1,3 +1,6 @@
+
+WIP (``go(1)`` RPC HTTPs authentication module)
+
 # Overview
 This package contains a RPC module to handle authentication related
 tasks. We restrict ourself to a subset of HTTP to describe our
@@ -23,8 +26,6 @@ exchnaged via cookies, and sent encoded in a JSON blob,
 predictible: all inputs/outputs are always managed in the exact
 same way everywhere.
 
-
-
 Typically, you would reserve a prefix for those RPCs:
 
     import (
@@ -49,6 +50,3 @@ Typically, you would reserve a prefix for those RPCs:
     	...
 
     }
-
-
-WIP (``go(1)`` RPC HTTPs authentication module)
