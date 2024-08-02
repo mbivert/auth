@@ -1,19 +1,19 @@
 package auth
 
 import (
-	"time"
-	"net/http"
-	"log"
-	"fmt"
-	"strings"
 	"encoding/json"
-	"golang.org/x/crypto/bcrypt"
 	"errors"
+	"fmt"
+	"golang.org/x/crypto/bcrypt"
+	"log"
+	"net/http"
+	"strings"
 	"sync"
+	"time"
 )
 
 // TODO: timeout
-var verifs   = map[string]string{}
+var verifs = map[string]string{}
 var verifsMu sync.Mutex
 
 func mkVerifTok(name string) string {
@@ -53,7 +53,7 @@ func (e *Email) UnmarshalJSON(data []byte) error {
 }
 
 // internal error (500)
-type intErr struct{
+type intErr struct {
 	string
 }
 
@@ -73,21 +73,20 @@ func fails(w http.ResponseWriter, err error) {
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	err2 := json.NewEncoder(w).Encode(&SomeErr{ err.Error() })
+	err2 := json.NewEncoder(w).Encode(&SomeErr{err.Error()})
 	if err2 != nil {
 		// XXX this will have to do for now
-		w.Write([]byte("{ err : \"error while encoding '"+
-			err.Error()+"': "+err2.Error()+"\"}"))
+		w.Write([]byte("{ err : \"error while encoding '" +
+			err.Error() + "': " + err2.Error() + "\"}"))
 	}
 }
 
 // fancy
 func wrap[Tin, Tout any](
-	db DB,
-	f func (db DB, w http.ResponseWriter, r *http.Request, in *Tin, out *Tout) error,
-) func (w http.ResponseWriter, r *http.Request) {
+	db DB, f func(db DB, in *Tin, out *Tout) error
+) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var in  Tin
+		var in Tin
 		var out Tout
 
 		r.Body = http.MaxBytesReader(w, r.Body, 1048576)
@@ -98,7 +97,7 @@ func wrap[Tin, Tout any](
 			goto err
 		}
 
-		err = f(db, w, r, &in, &out)
+		err = f(db, &in, &out)
 		if err != nil {
 			goto err
 		}
@@ -114,9 +113,9 @@ func wrap[Tin, Tout any](
 
 		return
 
-		err:
-			fails(w, err)
-			return
+	err:
+		fails(w, err)
+		return
 	}
 }
 
@@ -125,9 +124,7 @@ func hash(passwd string) (string, error) {
 	return string(h), err
 }
 
-func signin(
-	db DB, w http.ResponseWriter, r *http.Request, in *SigninIn, out *SigninOut,
-) error {
+func signin(db DB, in *SigninIn, out *SigninOut,) error {
 	// encoding/json (just) manages basic JSON parsing, it's
 	// a bit simpler to do things here rather than extend
 	// the decoder up there
@@ -177,11 +174,9 @@ func signin(
 	return nil
 }
 
-func login(
-	db DB, w http.ResponseWriter, r *http.Request, in *LoginIn, out *LoginOut,
-) error {
+func login(db DB, in *LoginIn, out *LoginOut) error {
 	var u User
-	u.Name  = in.Login
+	u.Name = in.Login
 	u.Email = in.Login
 	if err := db.GetUser(&u); err != nil {
 		return err
@@ -202,12 +197,10 @@ func login(
 		return fmt.Errorf("Invalid login or password")
 	}
 
-	return &intErr{err.Error()};
+	return &intErr{err.Error()}
 }
 
-func signout(
-	db DB, w http.ResponseWriter, r *http.Request, in *SignoutIn, out *SignoutOut,
-) error {
+func signout(db DB, in *SignoutIn, out *SignoutOut) error {
 	ok, name, err := IsValidToken(in.Token)
 	if err != nil {
 		return err
@@ -222,18 +215,12 @@ func signout(
 	return err
 }
 
-func chain(
-	db DB, w http.ResponseWriter,
-	r *http.Request, in *ChainIn, out *ChainOut,
-) (err error) {
+func chain(db DB, in *ChainIn, out *ChainOut) (err error) {
 	out.Token, err = ChainToken(in.Token)
 	return err
 }
 
-func logout(
-	db DB, w http.ResponseWriter,
-	r *http.Request, in *LogoutIn, out *LogoutOut,
-) error {
+func logout(db DB, in *LogoutIn, out *LogoutOut) error {
 	ok, name, err := IsValidToken(in.Token)
 	if err != nil {
 		return err
@@ -246,10 +233,7 @@ func logout(
 	return nil
 }
 
-func edit(
-	db DB, w http.ResponseWriter,
-	r *http.Request, in *EditIn, out *EditOut,
-) (err error) {
+func edit(db DB, in *EditIn, out *EditOut) (err error) {
 	out.Token, err = ChainToken(in.Token)
 	if err != nil {
 		return err
@@ -269,15 +253,12 @@ func edit(
 	// be valid as the JSON has checked it,
 	// and we just need to make sure it doesn't
 	// exists in database.
-//	bcrypt
+	//	bcrypt
 
 	return nil
 }
 
-func verify(
-	db DB, w http.ResponseWriter,
-	r *http.Request, in *VerifyIn, out *VerifyOut,
-) (err error) {
+func verify(db DB, in *VerifyIn, out *VerifyOut) (err error) {
 	if name := tryVerifTok(in.Token); name != "" {
 		if err := db.VerifyUser(name); err != nil {
 			return fmt.Errorf("Can't verify user '%s': %s", name, err)
@@ -301,23 +282,23 @@ func New(db DB) *http.ServeMux {
 	// this with a shell script or whatnot.
 
 	// signin from an email/username/password
-	mux.HandleFunc("/signin",  wrap[SigninIn,  SigninOut](db, signin))
+	mux.HandleFunc("/signin", wrap[SigninIn, SigninOut](db, signin))
 
 	mux.HandleFunc("/signout", wrap[SignoutIn, SignoutOut](db, signout))
 
-	mux.HandleFunc("/login",   wrap[LoginIn,   LoginOut](db, login))
+	mux.HandleFunc("/login", wrap[LoginIn, LoginOut](db, login))
 
 	// Check a token's validity/update it
-	mux.HandleFunc("/chain",   wrap[ChainIn,   ChainOut](db, chain))
+	mux.HandleFunc("/chain", wrap[ChainIn, ChainOut](db, chain))
 
-	mux.HandleFunc("/logout",  wrap[LogoutIn,  LogoutOut](db, logout))
+	mux.HandleFunc("/logout", wrap[LogoutIn, LogoutOut](db, logout))
 
 	// email ownership verification upon signin,
 	// followed by an automatic login.
-	mux.HandleFunc("/verify",  wrap[VerifyIn,  VerifyOut](db, verify))
+	mux.HandleFunc("/verify", wrap[VerifyIn, VerifyOut](db, verify))
 
 	// Password/email edition
-	mux.HandleFunc("/edit",    wrap[EditIn,    EditOut](db, edit))
+	mux.HandleFunc("/edit", wrap[EditIn, EditOut](db, edit))
 
 	return mux
 }
