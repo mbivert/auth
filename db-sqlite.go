@@ -1,7 +1,8 @@
 package auth
 
-// implements auth.DB (../../types.go:/type DB interface);
-// indirectly tested via ../../auth_test.go
+/*
+ * Implements auth.DB (../../types.go:/type DB interface).
+ */
 
 import (
 	"database/sql"
@@ -33,13 +34,13 @@ func (db *SQLiteDB) AddTable() error {
 	defer db.Unlock()
 
 	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS
-		users(
-			id                      INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-			name        TEXT        UNIQUE,
-			email       TEXT        UNIQUE,
-			passwd      TEXT,
-			verified    INTEGER,
-			cdate       INTEGER
+		User (
+			Id                      INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+			Name        TEXT        UNIQUE,
+			Email       TEXT        UNIQUE,
+			Passwd      TEXT,
+			Verified    INTEGER,
+			CDate       INTEGER
 		)
 	`)
 	return err
@@ -54,17 +55,17 @@ func (db *SQLiteDB) AddUser(u *User) error {
 
 	// TODO: clarify exec vs. query (is there a prepare here?)
 	err := db.QueryRow(`INSERT INTO
-		users(name, email, passwd, verified, cdate)
+		User (Name, Email, Passwd, Verified, CDate)
 		VALUES($1, $2, $3, $4, $5)
-		RETURNING id`, u.Name, u.Email, u.Passwd, u.Verified, u.CDate,
+		RETURNING Id`, u.Name, u.Email, u.Passwd, u.Verified, u.CDate,
 	).Scan(&u.Id)
 
 	// Improve error message (this is for tests purposes: caller
 	// is expected to provide end user with something less informative)
-	if err != nil && err.Error() == "UNIQUE constraint failed: users.email" {
+	if err != nil && err.Error() == "UNIQUE constraint failed: User.Email" {
 		err = fmt.Errorf("Email already used")
 	}
-	if err != nil && err.Error() == "UNIQUE constraint failed: users.name" {
+	if err != nil && err.Error() == "UNIQUE constraint failed: User.Name" {
 		err = fmt.Errorf("Username already used")
 	}
 
@@ -85,11 +86,11 @@ func (db *SQLiteDB) VerifyUser(name string) error {
 	// did occured.
 	err := db.QueryRow(`
 		UPDATE
-			users
+			User
 		SET
-			verified = $1
+			Verified = $1
 		WHERE
-			name  = $2
+			Name  = $2
 		RETURNING
 			1
 	`, 1, name).Scan(&x)
@@ -111,10 +112,10 @@ func (db *SQLiteDB) GetUser(u *User) error {
 
 	// TODO: clarify exec vs. query (is there a prepare here?)
 	err := db.QueryRow(`SELECT
-			name, email, passwd, verified, cdate
-		FROM users WHERE
-			name  = $1
-		OR  email = $2
+			Name, Email, Passwd, Verified, CDate
+		FROM User WHERE
+			Name  = $1
+		OR  Email = $2
 	`, u.Name, u.Email).Scan(&u.Name, &u.Email, &u.Passwd, &verified, &u.CDate)
 
 	if err == nil && verified > 0 {
@@ -133,8 +134,8 @@ func (db *SQLiteDB) RmUser(name string) (email string, err error) {
 	db.Lock()
 	defer db.Unlock()
 
-	err = db.QueryRow(`DELETE FROM users WHERE name = $1
-		RETURNING email`, name).Scan(&email)
+	err = db.QueryRow(`DELETE FROM User WHERE Name = $1
+		RETURNING Email`, name).Scan(&email)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		err = fmt.Errorf("Invalid username")
