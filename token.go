@@ -15,22 +15,22 @@ import (
 )
 
 var (
-	uniqs   = map[string]string{}
+	uniqs   = map[UserId]string{}
 	uniqsMu = &sync.Mutex{}
 )
 
-func newHMACToken(name string, edate int64, uniq string) (string, error) {
+func newHMACToken(uid UserId, edate int64, uniq string) (string, error) {
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"name" : name,
+		"uid"  : uid,
 		"uniq" : uniq,
 		// XXX jwt.NewNumericDate(time.Now().Add(C.Timeout)) ?
 		"date" : edate,
 	}).SignedString([]byte(C.HMAC))
 }
 
-func newECDSAToken(name string, edate int64, uniq string) (string, error) {
+func newECDSAToken(uid UserId, edate int64, uniq string) (string, error) {
 	return jwt.NewWithClaims(jwt.SigningMethodES256, jwt.MapClaims{
-		"name" : name,
+		"uid"  : uid,
 		"uniq" : uniq,
 		// XXX jwt.NewNumericDate(time.Now().Add(C.Timeout)) ?
 		"date" : edate,
@@ -38,26 +38,26 @@ func newECDSAToken(name string, edate int64, uniq string) (string, error) {
 }
 
 // NOTE: not inlined in NewToken for tests
-func newToken(name string, edate int64, uniq string) (string, error) {
+func newToken(uid UserId, edate int64, uniq string) (string, error) {
 	if C.HMAC != "" {
-		return newHMACToken(name, edate, uniq)
+		return newHMACToken(uid, edate, uniq)
 	}
-	return newECDSAToken(name, edate, uniq)
+	return newECDSAToken(uid, edate, uniq)
 }
 
-func storeUniq(name, uniq string) string {
+func storeUniq(uid UserId, uniq string) string {
 	uniqsMu.Lock()
 	defer uniqsMu.Unlock()
-	uniqs[name] = uniq
+	uniqs[uid] = uniq
 	return uniq
 }
 
-func mkUniq(name string) string {
-	return storeUniq(name, randString(C.LenUniq))
+func mkUniq(uid UserId) string {
+	return storeUniq(uid, randString(C.LenUniq))
 }
 
-func NewToken(name string) (string, error) {
-	return newToken(name, time.Now().Unix()+C.Timeout, mkUniq(name))
+func NewToken(uid UserId) (string, error) {
+	return newToken(uid, time.Now().Unix()+C.Timeout, mkUniq(uid))
 }
 
 func parseHMAC(tok *jwt.Token) (interface{}, error) {
@@ -94,37 +94,42 @@ func parseToken(str string) (jwt.MapClaims, error) {
 }
 
 func isValidToken(claims jwt.MapClaims) bool {
+	uniqsMu.Lock()
+	defer uniqsMu.Unlock()
+
 	// we're unpacking a (correctly) signed token: all
 	// those must be present (well, can't have been
 	// altered from outside at least).
 	//
 	// NOTE: we may still want to add assertions here anyway.
-	d, _ := claims["date"].(float64)
-	u, _ := claims["uniq"].(string)
-	n, _ := claims["name"].(string)
+	date, _ := claims["date"].(float64)
+	uniq, _ := claims["uniq"].(string)
+	xuid,  _ := claims["uid"].(float64)
 
-	uniqsMu.Lock()
-	defer uniqsMu.Unlock()
+	uid := UserId(xuid)
 
-	dok := (int64(d) > time.Now().Unix())
+	dok := (int64(date) > time.Now().Unix())
 
+	// XXX/TODO
 	// I mean, sure, but if the token has been signed and we're assuming
 	// it hasn't been altered, the likelihood for this to be incorrect
-	// is zero: the whole uniq shebang is probably overkill.
-	uok := subtle.ConstantTimeCompare([]byte(u), []byte(uniqs[n])) == 1
+	// is zero: the whole uniq shebang feels overkill, especially
+	// with all that surrounding noise.
+	uok := subtle.ConstantTimeCompare([]byte(uniq), []byte(uniqs[uid])) == 1
 
 	return dok && uok
 }
 
-func IsValidToken(str string) (bool, string, error) {
+func IsValidToken(str string) (bool, UserId, error) {
 	claims, err := parseToken(str)
 	if err != nil {
-		return false, "", err
+		return false, -1, err
 	}
 
-	n, _ := claims["name"].(string)
+	xuid, _ := claims["uid"].(float64)
+	uid := UserId(xuid)
 
-	return isValidToken(claims), n, nil
+	return isValidToken(claims), uid, nil
 }
 
 // NOTE: Again, not inlined in ChainToken() for tests
@@ -138,23 +143,24 @@ func chainToken(str string, edate int64, uniq string) (string, error) {
 		return "", fmt.Errorf("Expired token")
 	}
 
-	n, _ := claims["name"].(string)
+	xuid, _ := claims["uid"].(float64)
+	uid := UserId(xuid)
 
 	// In tests, we provide a known uniq; it's "" iff we're
 	// in production (see ChainToken() below)
 	if uniq == "" {
-		uniq = mkUniq(n)
+		uniq = mkUniq(uid)
 	}
 
-	return newToken(n, edate, uniq)
+	return newToken(uid, edate, uniq)
 }
 
 func ChainToken(str string) (string, error) {
 	return chainToken(str, time.Now().Unix()+C.Timeout, "")
 }
 
-func ClearUser(name string) {
+func ClearUser(uid UserId) {
 	uniqsMu.Lock()
 	defer uniqsMu.Unlock()
-	delete(uniqs, name)
+	delete(uniqs, uid)
 }

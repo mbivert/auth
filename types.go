@@ -1,16 +1,20 @@
 package auth
 
+// The UserId is assumed to be immutable for any user
+// (not like e.g. a username or an email)
+type UserId int64
+
 // implemented by sqlite/main.go; used at least for tests
 type DB interface {
 	AddUser(*User) error
-	VerifyUser(string) error // verified email ownership
+	VerifyUser(UserId) error // verified email ownership
 	GetUser(*User) error
-	RmUser(string) (string, error)
+	RmUser(UserId) (string, error)
 	EditUser() error
 }
 
 type User struct {
-	Id       int64
+	Id       UserId
 	Name     string
 	Email    string
 	Passwd   string

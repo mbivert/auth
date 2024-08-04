@@ -21,8 +21,8 @@ func init() {
 	}
 }
 
-func newParseToken(name string, date int64, uniq string) jwt.MapClaims {
-	str, err := newToken(name, date, uniq)
+func newParseToken(uid UserId, date int64, uniq string) jwt.MapClaims {
+	str, err := newToken(uid, date, uniq)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -40,9 +40,9 @@ func TestNewParseToken(t *testing.T) {
 		{
 			"token creation",
 			newParseToken,
-			[]any{"username", date, "one-time-value"},
+			[]any{UserId(42), date, "one-time-value"},
 			[]any{jwt.MapClaims{
-				"name" : "username",
+				"uid"  : float64(42),
 				"uniq" : "one-time-value",
 				"date" : float64(date),
 			}},
@@ -51,10 +51,10 @@ func TestNewParseToken(t *testing.T) {
 }
 
 func newChainParseToken(
-	name string, before, after int64, uniq, uniq2 string,
+	uid UserId, before, after int64, uniq, uniq2 string,
 ) jwt.MapClaims {
-	storeUniq(name, uniq)
-	str, err := newToken(name, before, uniq)
+	storeUniq(uid, uniq)
+	str, err := newToken(uid, before, uniq)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -81,12 +81,12 @@ func TestCheckToken(t *testing.T) {
 			"basic token chaining",
 			newChainParseToken,
 			[]any{
-				"username", before, after,
+				UserId(42), before, after,
 				"one-time-value",
 				"another-one-time-value",
 			},
 			[]any{jwt.MapClaims{
-				"name" : "username",
+				"uid"  : float64(42),
 				"uniq" : "another-one-time-value",
 				"date" : float64(after),
 			}},

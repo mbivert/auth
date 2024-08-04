@@ -13,10 +13,10 @@ import (
 )
 
 // TODO: timeout
-var verifs = map[string]string{}
+var verifs = map[string]UserId{}
 var verifsMu sync.Mutex
 
-func mkVerifTok(name string) string {
+func mkVerifTok(uid UserId) string {
 	verifsMu.Lock()
 	defer verifsMu.Unlock()
 	var tok string
@@ -27,18 +27,18 @@ func mkVerifTok(name string) string {
 			break
 		}
 	}
-	verifs[tok] = name
+	verifs[tok] = uid
 	return tok
 }
 
-func tryVerifTok(tok string) string {
+func tryVerifTok(tok string) UserId {
 	verifsMu.Lock()
 	defer verifsMu.Unlock()
-	if name, ok := verifs[tok]; ok {
+	if uid, ok := verifs[tok]; ok {
 		delete(verifs, tok)
-		return name
+		return uid
 	}
-	return ""
+	return -1
 }
 
 func (e *Email) UnmarshalJSON(data []byte) error {
@@ -148,18 +148,19 @@ func Signin(db DB, in *SigninIn, out *SigninOut) error {
 	}
 
 	// XXX rough/verbose error message
-	if err := db.AddUser(&User{
+	u := User{
 		0, in.Name, in.Email.string, in.Passwd, false, time.Now().UTC().Unix(),
-	}); err != nil {
+	}
+	if err := db.AddUser(&u); err != nil {
 		return err
 	}
 
 	if C.NoVerif {
-		out.Token, err = NewToken(in.Name)
+		out.Token, err = NewToken(u.Id)
 		return err
 	}
 
-	tok := mkVerifTok(in.Name)
+	tok := mkVerifTok(u.Id)
 
 	// TODO: send an email to the specified address.
 	// If so, we'll want to add a timer/restrictions to avoid
@@ -189,7 +190,7 @@ func Login(db DB, in *LoginIn, out *LoginOut) error {
 	// constant time
 	err := bcrypt.CompareHashAndPassword([]byte(u.Passwd), []byte(in.Passwd))
 	if err == nil {
-		out.Token, err = NewToken(u.Name)
+		out.Token, err = NewToken(u.Id)
 		return err
 	}
 
@@ -201,7 +202,7 @@ func Login(db DB, in *LoginIn, out *LoginOut) error {
 }
 
 func Signout(db DB, in *SignoutIn, out *SignoutOut) error {
-	ok, name, err := IsValidToken(in.Token)
+	ok, uid, err := IsValidToken(in.Token)
 	if err != nil {
 		return err
 	}
@@ -210,7 +211,7 @@ func Signout(db DB, in *SignoutIn, out *SignoutOut) error {
 	}
 
 	// TODO: maybe send a confirmation email
-	_, err = db.RmUser(name)
+	_, err = db.RmUser(uid)
 
 	return err
 }
@@ -221,7 +222,7 @@ func Chain(db DB, in *ChainIn, out *ChainOut) (err error) {
 }
 
 func Logout(db DB, in *LogoutIn, out *LogoutOut) error {
-	ok, name, err := IsValidToken(in.Token)
+	ok, uid, err := IsValidToken(in.Token)
 	if err != nil {
 		return err
 	}
@@ -229,7 +230,7 @@ func Logout(db DB, in *LogoutIn, out *LogoutOut) error {
 		return fmt.Errorf("Not connected!")
 	}
 
-	ClearUser(name)
+	ClearUser(uid)
 	return nil
 }
 
@@ -239,10 +240,7 @@ func Edit(db DB, in *EditIn, out *EditOut) (err error) {
 		return err
 	}
 
-	// ChainToken doesn't return the name, so we
-	// can't detect name change; we need this
-	// to get the (old) login so we can get
-	// passwd and check that passwd is okay
+	// Don't chain & fetch data from db?
 	//
 	// Then if newpasswd exists is > 10 and
 	// so forth, update the password.
@@ -253,21 +251,20 @@ func Edit(db DB, in *EditIn, out *EditOut) (err error) {
 	// be valid as the JSON has checked it,
 	// and we just need to make sure it doesn't
 	// exists in database.
-	//	bcrypt
 
 	return nil
 }
 
 func Verify(db DB, in *VerifyIn, out *VerifyOut) (err error) {
-	if name := tryVerifTok(in.Token); name != "" {
-		if err := db.VerifyUser(name); err != nil {
-			return fmt.Errorf("Can't verify user '%s': %s", name, err)
+	if uid := tryVerifTok(in.Token); uid != -1 {
+		if err := db.VerifyUser(uid); err != nil {
+			return fmt.Errorf("Can't verify user '%d': %s", uid, err)
 		}
 
 		// XXX Alright, this is convenient, but maybe we'd want
 		// to think more about it; pretty sure I'd prefer to have
 		// a genuine JWT token in in.Token.
-		out.Token, err = NewToken(name)
+		out.Token, err = NewToken(uid)
 		return err
 	}
 	return fmt.Errorf("Invalid token")

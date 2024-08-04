@@ -50,11 +50,11 @@ func initauthtest() {
 	C.NoVerif = true
 }
 
-func getVerifTokFor(name string) string {
+func getVerifTokFor(uid UserId) string {
 	verifsMu.Lock()
 	defer verifsMu.Unlock()
 	for k, v := range verifs {
-		if v == name {
+		if v == uid {
 			return k
 		}
 	}
@@ -197,9 +197,9 @@ func TestSignin(t *testing.T) {
 			}},
 			[]any{map[string]any{
 				"token" : jwt.MapClaims{
-					"date" : 0,          // redacted to ease tests
+					"date"  : 0,          // redacted to ease tests
 					"uniq" : "redacted", // idem
-					"name" : "abc",
+					"uid"  : float64(1), // fragile?
 				},
 			}},
 		},
@@ -267,7 +267,7 @@ func TestLoginLogout(t *testing.T) {
 				"token" : jwt.MapClaims{
 					"date" : 0,          // redacted to ease tests
 					"uniq" : "redacted", // idem
-					"name" : "test",
+					"uid"  : float64(1),
 				},
 			}},
 		},
@@ -307,7 +307,7 @@ func TestLoginLogout(t *testing.T) {
 				"token" : jwt.MapClaims{
 					"date" : 0,          // redacted to ease tests
 					"uniq" : "redacted", // idem
-					"name" : "test",
+					"uid"  : float64(1),
 				},
 			}},
 		},
@@ -360,7 +360,7 @@ func TestSignout(t *testing.T) {
 				"token" : jwt.MapClaims{
 					"date" : 0,          // redacted to ease tests
 					"uniq" : "redacted", // idem
-					"name" : "test",
+					"uid"  : float64(1),
 				},
 			}},
 		},
@@ -375,7 +375,7 @@ func TestSignout(t *testing.T) {
 				"token" : jwt.MapClaims{
 					"date" : 0,          // redacted to ease tests
 					"uniq" : "redacted", // idem
-					"name" : "test",
+					"uid"  : float64(1),
 				},
 			}},
 		},
@@ -440,7 +440,7 @@ func TestChain(t *testing.T) {
 				"token" : jwt.MapClaims{
 					"date" : 0,          // redacted to ease tests
 					"uniq" : "redacted", // idem
-					"name" : "test",
+					"uid"  : float64(1),
 				},
 			}},
 		},
@@ -455,7 +455,7 @@ func TestChain(t *testing.T) {
 				"token" : jwt.MapClaims{
 					"date" : 0,          // redacted to ease tests
 					"uniq" : "redacted", // idem
-					"name" : "test",
+					"uid"  : float64(1),
 				},
 			}},
 		},
@@ -473,7 +473,7 @@ func TestChain(t *testing.T) {
 				"token" : jwt.MapClaims{
 					"date" : 0,          // redacted to ease tests
 					"uniq" : "redacted", // idem
-					"name" : "test",
+					"uid"  : float64(1),
 				},
 			}},
 		},
@@ -491,7 +491,7 @@ func TestChain(t *testing.T) {
 				"token" : jwt.MapClaims{
 					"date" : 0,          // redacted to ease tests
 					"uniq" : "redacted", // idem
-					"name" : "test",
+					"uid"  : float64(1),
 				},
 			}},
 		},
@@ -515,7 +515,7 @@ func TestTweaking(t *testing.T) {
 				"token" : jwt.MapClaims{
 					"date" : 0,          // redacted to ease tests
 					"uniq" : "redacted", // idem
-					"name" : "test",
+					"uid"  : float64(1),
 				},
 			}},
 		},
@@ -530,7 +530,7 @@ func TestTweaking(t *testing.T) {
 				"token" : jwt.MapClaims{
 					"date" : 0,          // redacted to ease tests
 					"uniq" : "redacted", // idem
-					"name" : "test",
+					"uid"  : float64(1),
 				},
 			}},
 		},

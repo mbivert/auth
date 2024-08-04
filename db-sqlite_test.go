@@ -30,6 +30,16 @@ func initsqlitetest() {
 
 }
 
+func getUser(login string) (*User, error) {
+	var u User
+	u.Name  = login
+	u.Email = login
+	if err := db.GetUser(&u); err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
 func TestAddUser(t *testing.T) {
 	initsqlitetest()
 
@@ -78,50 +88,50 @@ func TestAddUser(t *testing.T) {
 	})
 }
 
-func getUser(login string) (*User, error) {
-	var u User
-	u.Name  = login
-	u.Email = login
-	if err := db.GetUser(&u); err != nil {
-		return nil, err
-	}
-	return &u, nil
-}
-
 func TestVerifyUser(t *testing.T) {
 	initsqlitetest()
 
 	now := time.Now().Unix()
 
-	name  := "t"
+	u := User{
+		Id       : 0,
+		Name     : "t",
+		Email    : "t0",
+		Passwd   : "t",
+		Verified : false,
+		CDate    : now,
+	}
 
 	ftests.Run(t, []ftests.Test{
 		{
 			"Registering a random user",
 			db.AddUser,
-			[]interface{}{&User{
-				Id       : 0,
-				Name     : name,
-				Email    : "t0",
-				Passwd   : "t",
-				Verified : false,
-				CDate    : now,
-			}},
+			[]interface{}{&u},
 			[]interface{}{nil},
 		},
 		{
-			"Verifying an existing user (using name)",
+			"Make sure our ID is correct",
+			func(u *User, uid UserId) bool { return u.Id == uid },
+			[]interface{}{&u, UserId(1)},
+			[]interface{}{true},
+		},
+		// NOTE: we can't use u.ID below, because it'll be
+		// computed at compile time, while we wants its
+		// value after we have executed the AddUser. Hence
+		// the previous test/assertion
+		{
+			"Verifying an existing user",
 			db.VerifyUser,
-			[]interface{}{name},
+			[]interface{}{UserId(1)},
 			[]interface{}{nil},
 		},
 		{
 			"User has indeed been verified",
 			getUser,
-			[]interface{}{name},
+			[]interface{}{u.Name},
 			[]interface{}{&User{
-				Id       : 0,
-				Name     : name,
+				Id       : 1,
+				Name     : "t",
 				Email    : "t0",
 				Passwd   : "t",
 				Verified : true,
@@ -131,9 +141,9 @@ func TestVerifyUser(t *testing.T) {
 		{
 			"Verifying an in-existing user",
 			db.VerifyUser,
-			[]interface{}{"nope"},
+			[]interface{}{UserId(42)},
 			[]interface{}{fmt.Errorf(
-				"Invalid username",
+				"Invalid uid",
 			)},
 		},
 	})
@@ -145,10 +155,19 @@ func TestGetUser(t *testing.T) {
 	now := time.Now().Unix()
 
 	// nil user pointer
-	var u *User
+	var x *User
 
 	name  := "t"
 	email := "t0"
+
+	u := User{
+		Id       : 0,
+		Name     : name,
+		Email    : email,
+		Passwd   : "t",
+		Verified : false,
+		CDate    : now,
+	}
 
 	// NOTE: we're testing the verified=true
 	// case in TestVerifyUser()
@@ -156,47 +175,36 @@ func TestGetUser(t *testing.T) {
 		{
 			"Registering a random user",
 			db.AddUser,
-			[]interface{}{&User{
-				Id       : 0,
-				Name     : name,
-				Email    : email,
-				Passwd   : "t",
-				Verified : false,
-				CDate    : now,
-			}},
+			[]interface{}{&u},
 			[]interface{}{nil},
 		},
+		{
+			"Make sure our ID is correct",
+			func(u *User, uid UserId) bool { return u.Id == uid },
+			[]interface{}{&u, UserId(1)},
+			[]interface{}{true},
+		},
+		// NOTE: we can't use u.ID below, because it'll be
+		// computed at compile time, while we wants its
+		// value after we have executed the AddUser. Hence
+		// the previous test/assertion
 		{
 			"Retrieving user by name",
 			getUser,
 			[]interface{}{name},
-			[]interface{}{&User{
-				Id       : 0,
-				Name     : name,
-				Email    : email,
-				Passwd   : "t",
-				Verified : false,
-				CDate    : now,
-			}, nil},
+			[]interface{}{&u, nil},
 		},
 		{
 			"Retrieving user by email",
 			getUser,
 			[]interface{}{email},
-			[]interface{}{&User{
-				Id       : 0,
-				Name     : name,
-				Email    : email,
-				Passwd   : "t",
-				Verified : false,
-				CDate    : now,
-			}, nil},
+			[]interface{}{&u, nil},
 		},
 		{
 			"Retrieving inexisting user",
 			getUser,
 			[]interface{}{"nope"},
-			[]interface{}{u, fmt.Errorf(
+			[]interface{}{x, fmt.Errorf(
 				"Invalid username or email",
 			)},
 		},
@@ -209,44 +217,56 @@ func TestRmUser(t *testing.T) {
 	now := time.Now().Unix()
 
 	// nil user pointer
-	var u *User
+	var x *User
 
 	name  := "t"
+
+	u := User{
+		Id       : 0,
+		Name     : name,
+		Email    : "t",
+		Passwd   : "t",
+		Verified : false,
+		CDate    : now,
+	}
 
 	ftests.Run(t, []ftests.Test{
 		{
 			"Registering a random user",
 			db.AddUser,
-			[]interface{}{&User{
-				Id       : 0,
-				Name     : name,
-				Email    : "t",
-				Passwd   : "t",
-				Verified : false,
-				CDate    : now,
-			}},
+			[]interface{}{&u},
 			[]interface{}{nil},
 		},
 		{
+			"Make sure our ID is correct",
+			func(u *User, uid UserId) bool { return u.Id == uid },
+			[]interface{}{&u, UserId(1)},
+			[]interface{}{true},
+		},
+		// NOTE: we can't use u.ID below, because it'll be
+		// computed at compile time, while we wants its
+		// value after we have executed the AddUser. Hence
+		// the previous test/assertion
+		{
 			"Deleting our user",
 			db.RmUser,
-			[]interface{}{name},
+			[]interface{}{UserId(1)},
 			[]interface{}{"t", nil},
 		},
 		{
 			"User has indeed been deleted",
 			getUser,
 			[]interface{}{name},
-			[]interface{}{u, fmt.Errorf(
+			[]interface{}{x, fmt.Errorf(
 				"Invalid username or email",
 			)},
 		},
 		{
 			"Can't delete an inexisting user",
 			db.RmUser,
-			[]interface{}{name},
+			[]interface{}{UserId(42)},
 			[]interface{}{"", fmt.Errorf(
-				"Invalid username",
+				"Invalid uid",
 			)},
 		},
 	})

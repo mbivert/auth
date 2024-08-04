@@ -72,9 +72,9 @@ func (db *SQLiteDB) AddUser(u *User) error {
 	return err
 }
 
-// Okay so we're checking the user via its name; could it be
-// convenient to also allow to do it via email?
-func (db *SQLiteDB) VerifyUser(name string) error {
+
+// XXX should be a (bool, error)
+func (db *SQLiteDB) VerifyUser(uid UserId) error {
 	db.Lock()
 	defer db.Unlock()
 
@@ -90,14 +90,14 @@ func (db *SQLiteDB) VerifyUser(name string) error {
 		SET
 			Verified = $1
 		WHERE
-			Name  = $2
+			Id  = $2
 		RETURNING
 			1
-	`, 1, name).Scan(&x)
+	`, 1, uid).Scan(&x)
 
 
 	if errors.Is(err, sql.ErrNoRows) {
-		err = fmt.Errorf("Invalid username")
+		err = fmt.Errorf("Invalid uid")
 	}
 
 	return err
@@ -112,11 +112,11 @@ func (db *SQLiteDB) GetUser(u *User) error {
 
 	// TODO: clarify exec vs. query (is there a prepare here?)
 	err := db.QueryRow(`SELECT
-			Name, Email, Passwd, Verified, CDate
+			Id, Name, Email, Passwd, Verified, CDate
 		FROM User WHERE
 			Name  = $1
 		OR  Email = $2
-	`, u.Name, u.Email).Scan(&u.Name, &u.Email, &u.Passwd, &verified, &u.CDate)
+	`, u.Name, u.Email).Scan(&u.Id, &u.Name, &u.Email, &u.Passwd, &verified, &u.CDate)
 
 	if err == nil && verified > 0 {
 		u.Verified = true
@@ -130,15 +130,15 @@ func (db *SQLiteDB) GetUser(u *User) error {
 	return err
 }
 
-func (db *SQLiteDB) RmUser(name string) (email string, err error) {
+func (db *SQLiteDB) RmUser(uid UserId) (email string, err error) {
 	db.Lock()
 	defer db.Unlock()
 
-	err = db.QueryRow(`DELETE FROM User WHERE Name = $1
-		RETURNING Email`, name).Scan(&email)
+	err = db.QueryRow(`DELETE FROM User WHERE Id = $1
+		RETURNING Email`, uid).Scan(&email)
 
 	if errors.Is(err, sql.ErrNoRows) {
-		err = fmt.Errorf("Invalid username")
+		err = fmt.Errorf("Invalid uid")
 	}
 
 	return email, err
