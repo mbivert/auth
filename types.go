@@ -69,6 +69,14 @@ type ChainOut struct {
 	Token  string `json:"token"`
 }
 
+type CheckIn struct {
+	Token  string `json:"token"`
+}
+
+type CheckOut struct {
+	Match  bool `json:"match"`
+}
+
 // NOTE/XXX: This is a "special" token, not the usual JWT
 // token. Perhaps we could still use a JWT token here too.
 type VerifyIn struct {

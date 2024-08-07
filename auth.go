@@ -221,6 +221,11 @@ func Chain(db DB, in *ChainIn, out *ChainOut) (err error) {
 	return err
 }
 
+func Check(db DB, in *CheckIn, out *CheckOut) (err error) {
+	out.Match, _, err = IsValidToken(in.Token)
+	return err
+}
+
 func Logout(db DB, in *LogoutIn, out *LogoutOut) error {
 	ok, uid, err := IsValidToken(in.Token)
 	if err != nil {
@@ -287,6 +292,9 @@ func New(db DB) *http.ServeMux {
 
 	// Check a token's validity/update it
 	mux.HandleFunc("/chain", wrap[ChainIn, ChainOut](db, Chain))
+
+	// Check a token's validity
+	mux.HandleFunc("/check", wrap[CheckIn, CheckOut](db, Check))
 
 	mux.HandleFunc("/logout", wrap[LogoutIn, LogoutOut](db, Logout))
 
