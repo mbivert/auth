@@ -406,7 +406,7 @@ func TestSignout(t *testing.T) {
 	})
 }
 
-func TestChain(t *testing.T) {
+func TestChainCheck(t *testing.T) {
 	initauthtest()
 
 	ftests.Run(t, []ftests.Test{
@@ -464,7 +464,17 @@ func TestChain(t *testing.T) {
 	// Must be declared after tokenStr has been set
 	ftests.Run(t, []ftests.Test{
 		{
-			"Valid token",
+			"Valid token (check)",
+			callURL,
+			[]any{handler, "/check", map[string]any{
+				"token"  : tokenStr,
+			}},
+			[]any{map[string]any{
+				"match" : true,
+			}},
+		},
+		{
+			"Valid token (chain)",
 			callURLWithToken,
 			[]any{handler, "/chain", map[string]any{
 				"token"  : tokenStr,
@@ -567,7 +577,7 @@ func TestSomeWithECDSA(t *testing.T) {
 	LoadKeys()
 
 	// Why not
-	TestChain(t)
+	TestChainCheck(t)
 	TestSignin(t)
 	TestSignout(t)
 
