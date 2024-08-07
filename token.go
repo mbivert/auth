@@ -60,14 +60,14 @@ func NewToken(uid UserId) (string, error) {
 	return newToken(uid, time.Now().Unix()+C.Timeout, mkUniq(uid))
 }
 
-func parseHMAC(tok *jwt.Token) (interface{}, error) {
+func parseHMAC(tok *jwt.Token) (any, error) {
 	if _, ok := tok.Method.(*jwt.SigningMethodHMAC); !ok {
 		return nil, fmt.Errorf("Invalid signing method: %v", tok.Header["alg"])
 	}
 	return []byte(C.HMAC), nil
 }
 
-func parseECDSA(tok *jwt.Token) (interface{}, error) {
+func parseECDSA(tok *jwt.Token) (any, error) {
 	if _, ok := tok.Method.(*jwt.SigningMethodECDSA); !ok {
 		return nil, fmt.Errorf("Invalid signing method: %v", tok.Header["alg"])
 	}
@@ -75,7 +75,7 @@ func parseECDSA(tok *jwt.Token) (interface{}, error) {
 }
 
 func parseToken(str string) (jwt.MapClaims, error) {
-	tok, err := jwt.Parse(str, func(tok *jwt.Token) (interface{}, error) {
+	tok, err := jwt.Parse(str, func(tok *jwt.Token) (any, error) {
 		if C.HMAC != ""{
 			return parseHMAC(tok)
 		}
@@ -121,6 +121,12 @@ func isValidToken(claims jwt.MapClaims) bool {
 }
 
 func IsValidToken(str string) (bool, UserId, error) {
+	// TODO: test & document (essentially, we're going to
+	// rely on a HTTP cookie to store the token, and the way
+	// it's removed is by setting it to the empty string)
+	if str == "" {
+		return false, -1, nil
+	}
 	claims, err := parseToken(str)
 	if err != nil {
 		return false, -1, err

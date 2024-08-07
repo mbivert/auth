@@ -27,7 +27,6 @@ func initsqlitetest() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
 }
 
 func getUser(login string) (*User, error) {
@@ -49,7 +48,7 @@ func TestAddUser(t *testing.T) {
 		{
 			"'bad' user allowed: checks are externals",
 			db.AddUser,
-			[]interface{}{&User{
+			[]any{&User{
 				Id       : 0,
 				Name     : "t",
 				Email    : "t",
@@ -57,12 +56,12 @@ func TestAddUser(t *testing.T) {
 				Verified : false,
 				CDate    : now,
 			}},
-			[]interface{}{nil},
+			[]any{nil},
 		},
 		{
 			"Can't have the same username twice",
 			db.AddUser,
-			[]interface{}{&User{
+			[]any{&User{
 				Id       : 0,
 				Name     : "t",
 				Email    : "t0",
@@ -70,12 +69,12 @@ func TestAddUser(t *testing.T) {
 				Verified : false,
 				CDate    : now,
 			}},
-			[]interface{}{fmt.Errorf("Username already used")},
+			[]any{fmt.Errorf("Username already used")},
 		},
 		{
 			"Can't have the same email twice",
 			db.AddUser,
-			[]interface{}{&User{
+			[]any{&User{
 				Id       : 0,
 				Name     : "t0",
 				Email    : "t",
@@ -83,7 +82,7 @@ func TestAddUser(t *testing.T) {
 				Verified : false,
 				CDate    : now,
 			}},
-			[]interface{}{fmt.Errorf("Email already used")},
+			[]any{fmt.Errorf("Email already used")},
 		},
 	})
 }
@@ -106,14 +105,14 @@ func TestVerifyUser(t *testing.T) {
 		{
 			"Registering a random user",
 			db.AddUser,
-			[]interface{}{&u},
-			[]interface{}{nil},
+			[]any{&u},
+			[]any{nil},
 		},
 		{
 			"Make sure our ID is correct",
 			func(u *User, uid UserId) bool { return u.Id == uid },
-			[]interface{}{&u, UserId(1)},
-			[]interface{}{true},
+			[]any{&u, UserId(1)},
+			[]any{true},
 		},
 		// NOTE: we can't use u.ID below, because it'll be
 		// computed at compile time, while we wants its
@@ -122,14 +121,14 @@ func TestVerifyUser(t *testing.T) {
 		{
 			"Verifying an existing user",
 			db.VerifyUser,
-			[]interface{}{UserId(1)},
-			[]interface{}{nil},
+			[]any{UserId(1)},
+			[]any{nil},
 		},
 		{
 			"User has indeed been verified",
 			getUser,
-			[]interface{}{u.Name},
-			[]interface{}{&User{
+			[]any{u.Name},
+			[]any{&User{
 				Id       : 1,
 				Name     : "t",
 				Email    : "t0",
@@ -141,8 +140,8 @@ func TestVerifyUser(t *testing.T) {
 		{
 			"Verifying an in-existing user",
 			db.VerifyUser,
-			[]interface{}{UserId(42)},
-			[]interface{}{fmt.Errorf(
+			[]any{UserId(42)},
+			[]any{fmt.Errorf(
 				"Invalid uid",
 			)},
 		},
@@ -175,14 +174,14 @@ func TestGetUser(t *testing.T) {
 		{
 			"Registering a random user",
 			db.AddUser,
-			[]interface{}{&u},
-			[]interface{}{nil},
+			[]any{&u},
+			[]any{nil},
 		},
 		{
 			"Make sure our ID is correct",
 			func(u *User, uid UserId) bool { return u.Id == uid },
-			[]interface{}{&u, UserId(1)},
-			[]interface{}{true},
+			[]any{&u, UserId(1)},
+			[]any{true},
 		},
 		// NOTE: we can't use u.ID below, because it'll be
 		// computed at compile time, while we wants its
@@ -191,20 +190,20 @@ func TestGetUser(t *testing.T) {
 		{
 			"Retrieving user by name",
 			getUser,
-			[]interface{}{name},
-			[]interface{}{&u, nil},
+			[]any{name},
+			[]any{&u, nil},
 		},
 		{
 			"Retrieving user by email",
 			getUser,
-			[]interface{}{email},
-			[]interface{}{&u, nil},
+			[]any{email},
+			[]any{&u, nil},
 		},
 		{
 			"Retrieving inexisting user",
 			getUser,
-			[]interface{}{"nope"},
-			[]interface{}{x, fmt.Errorf(
+			[]any{"nope"},
+			[]any{x, fmt.Errorf(
 				"Invalid username or email",
 			)},
 		},
@@ -234,14 +233,14 @@ func TestRmUser(t *testing.T) {
 		{
 			"Registering a random user",
 			db.AddUser,
-			[]interface{}{&u},
-			[]interface{}{nil},
+			[]any{&u},
+			[]any{nil},
 		},
 		{
 			"Make sure our ID is correct",
 			func(u *User, uid UserId) bool { return u.Id == uid },
-			[]interface{}{&u, UserId(1)},
-			[]interface{}{true},
+			[]any{&u, UserId(1)},
+			[]any{true},
 		},
 		// NOTE: we can't use u.ID below, because it'll be
 		// computed at compile time, while we wants its
@@ -250,22 +249,22 @@ func TestRmUser(t *testing.T) {
 		{
 			"Deleting our user",
 			db.RmUser,
-			[]interface{}{UserId(1)},
-			[]interface{}{"t", nil},
+			[]any{UserId(1)},
+			[]any{"t", nil},
 		},
 		{
 			"User has indeed been deleted",
 			getUser,
-			[]interface{}{name},
-			[]interface{}{x, fmt.Errorf(
+			[]any{name},
+			[]any{x, fmt.Errorf(
 				"Invalid username or email",
 			)},
 		},
 		{
 			"Can't delete an inexisting user",
 			db.RmUser,
-			[]interface{}{UserId(42)},
-			[]interface{}{"", fmt.Errorf(
+			[]any{UserId(42)},
+			[]any{"", fmt.Errorf(
 				"Invalid uid",
 			)},
 		},
