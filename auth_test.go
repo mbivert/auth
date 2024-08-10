@@ -61,7 +61,7 @@ func getVerifTokFor(uid UserId) string {
 	return ""
 }
 
-func callURL(handler http.Handler, url string, args any) any {
+func callURL(handler http.Handler, url string, args any, tok string) any {
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
 
@@ -70,10 +70,24 @@ func callURL(handler http.Handler, url string, args any) any {
 		log.Fatal(err)
 	}
 
-	r, err := http.Post(ts.URL+url, "application/json", strings.NewReader(string(sargs)))
+//	r, err := http.Post(ts.URL+url, "application/json", strings.NewReader(string(sargs)))
+
+	req, err := http.NewRequest("POST", ts.URL+url, strings.NewReader(string(sargs)))
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	req.Header.Add("Content-Type", "application/json")
+	if tok != "" {
+		req.AddCookie(&http.Cookie{
+			Name:     cookieName,
+			Value:    tok,
+			Path:     "/",
+			HttpOnly: true,
+		})
+	}
+
+	r, err := http.DefaultClient.Do(req)
 
 	var out any
 //	x, err := ioutil.ReadAll(r.Body)
@@ -96,7 +110,7 @@ var tokenStr = ""
 // same as callURL, but output is expected to be a hash containing
 // a token
 func callURLWithToken(handler http.Handler, url string, args any) any {
-	out := callURL(handler, url, args)
+	out := callURL(handler, url, args, tokenStr)
 
 	out2, ok := out.(map[string]any)
 	if !ok {
@@ -137,15 +151,15 @@ func TestSignin(t *testing.T) {
 		{
 			"Invalid input",
 			callURL,
-			[]any{handler, "/signin", ""},
+			[]any{handler, "/signin", "", ""},
 			[]any{map[string]any{
-				"err" : "JSON decoding failure",
+				"err" : "JSON decoding failure: json: cannot unmarshal string into Go value of type auth.SigninIn",
 			}},
 		},
 		{
 			"Empty hash",
 			callURL,
-			[]any{handler, "/signin", map[string]any{}},
+			[]any{handler, "/signin", map[string]any{}, ""},
 			[]any{map[string]any{
 				"err" : "Password too small",
 			}},
@@ -155,7 +169,7 @@ func TestSignin(t *testing.T) {
 			callURL,
 			[]any{handler, "/signin", map[string]any{
 				"passwd" : "1234567890",
-			}},
+			}, ""},
 			[]any{map[string]any{
 				"err" : "Name too small",
 			}},
@@ -166,7 +180,7 @@ func TestSignin(t *testing.T) {
 			[]any{handler, "/signin", map[string]any{
 				"passwd" : "1234567890",
 				"name"   : "abc",
-			}},
+			}, ""},
 			[]any{map[string]any{
 				"err" : "Email too small",
 			}},
@@ -180,10 +194,9 @@ func TestSignin(t *testing.T) {
 				"passwd" : "1234567890",
 				"name"   : "abc",
 				"email"  : "whatever",
-			}},
+			}, ""},
 			[]any{map[string]any{
-//				"err" : "Invalid email address",
-				"err" : "JSON decoding failure",
+				"err" : "JSON decoding failure: Invalid email address",
 			}},
 		},
 		// Assuming NoVerif = true here
@@ -210,7 +223,7 @@ func TestSignin(t *testing.T) {
 				"passwd" : "1234567890",
 				"name"   : "abc",
 				"email"  : "a@b",
-			}},
+			}, ""},
 			[]any{map[string]any{
 				"err"    : "Email already used",
 			}},
@@ -222,7 +235,7 @@ func TestSignin(t *testing.T) {
 				"passwd" : "1234567890",
 				"name"   : "abc",
 				"email"  : "a@bc",
-			}},
+			}, ""},
 			[]any{map[string]any{
 				"err"    : "Username already used",
 			}},
@@ -239,9 +252,9 @@ func TestLoginLogout(t *testing.T) {
 		{
 			"Invalid input",
 			callURL,
-			[]any{handler, "/login", ""},
+			[]any{handler, "/login", "", ""},
 			[]any{map[string]any{
-				"err" : "JSON decoding failure",
+				"err" : "JSON decoding failure: json: cannot unmarshal string into Go value of type auth.LoginIn",
 			}},
 		},
 		{
@@ -249,7 +262,7 @@ func TestLoginLogout(t *testing.T) {
 			callURL,
 			[]any{handler, "/login", map[string]any{
 				"login"  : "whatever",
-			}},
+			}, ""},
 			[]any{map[string]any{
 				"err" : "Invalid username or email",
 			}},
@@ -276,7 +289,7 @@ func TestLoginLogout(t *testing.T) {
 			callURL,
 			[]any{handler, "/login", map[string]any{
 				"login"  : "test",
-			}},
+			}, ""},
 			[]any{map[string]any{
 				"err" : "Invalid login or password",
 			}},
@@ -286,12 +299,18 @@ func TestLoginLogout(t *testing.T) {
 			callURL,
 			[]any{handler, "/logout", map[string]any{
 				// Dummy, but correctly formatted/encrypted
+/*
 				"token"  : "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"+
 					".eyJkYXRlIjoxNjc5NzkzMDM4LCJuYW1lIjoidGVzdCIs"+
 					"InVuaXEiOiJqRmdOZGFldzZYNTVaRjJoc3JDdFM2NVNIdU"+
 					"1DajFoakszd2VhUTJnaWVzV1NUdzJKZnNzRnpDc0pHYmp4UUtjIn0"+
 					".iVU2Q99JAbuAM-dZQS2w5eP5y3MmKDC7Qwj3Z7CWbWk",
-			}},
+*/
+			}, "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"+
+					".eyJkYXRlIjoxNjc5NzkzMDM4LCJuYW1lIjoidGVzdCIs"+
+					"InVuaXEiOiJqRmdOZGFldzZYNTVaRjJoc3JDdFM2NVNIdU"+
+					"1DajFoakszd2VhUTJnaWVzV1NUdzJKZnNzRnpDc0pHYmp4UUtjIn0"+
+					".iVU2Q99JAbuAM-dZQS2w5eP5y3MmKDC7Qwj3Z7CWbWk",},
 			[]any{map[string]any{
 				"err" : "Not connected!",
 			}},
@@ -319,8 +338,9 @@ func TestLoginLogout(t *testing.T) {
 			[]any{handler, "/logout", map[string]any{
 				// This is arbitrary, but signed
 				"token"  : tokenStr,
-			}},
+			}, tokenStr},
 			[]any{map[string]any{
+				"token" : "",
 			}},
 		},
 	})
@@ -333,17 +353,17 @@ func TestSignout(t *testing.T) {
 		{
 			"Invalid input",
 			callURL,
-			[]any{handler, "/signout", ""},
+			[]any{handler, "/signout", "", ""},
 			[]any{map[string]any{
-				"err" : "JSON decoding failure",
+				"err" : "JSON decoding failure: json: cannot unmarshal string into Go value of type auth.SignoutIn",
 			}},
 		},
 		{
 			"Invalid token",
 			callURL,
 			[]any{handler, "/signout", map[string]any{
-				"token"  : "whatever",
-			}},
+//				"token"  : "whatever",
+			}, "whatever"},
 			[]any{map[string]any{
 				"err" : errSegment,
 			}},
@@ -387,9 +407,10 @@ func TestSignout(t *testing.T) {
 			"Valid user/token (correct signout)",
 			callURL,
 			[]any{handler, "/signout", map[string]any{
-				"token"  : tokenStr,
-			}},
+//				"token"  : tokenStr,
+			}, tokenStr},
 			[]any{map[string]any{
+				"token" : "",
 			}},
 		},
 		{
@@ -398,7 +419,7 @@ func TestSignout(t *testing.T) {
 			[]any{handler, "/login", map[string]any{
 				"login"  : "test",
 				"passwd" : "1234567890",
-			}},
+			}, ""},
 			[]any{map[string]any{
 				"err" : "Invalid username or email",
 			}},
@@ -413,17 +434,17 @@ func TestChainCheck(t *testing.T) {
 		{
 			"Invalid input",
 			callURL,
-			[]any{handler, "/chain", ""},
+			[]any{handler, "/chain", "", ""},
 			[]any{map[string]any{
-				"err" : "JSON decoding failure",
+				"err" : "JSON decoding failure: json: cannot unmarshal string into Go value of type auth.ChainIn",
 			}},
 		},
 		{
 			"Invalid token",
 			callURL,
 			[]any{handler, "/chain", map[string]any{
-				"token"  : "whatever",
-			}},
+//				"token"  : "whatever",
+			}, "whatever"},
 			[]any{map[string]any{
 				"err" : errSegment,
 			}},
@@ -467,8 +488,8 @@ func TestChainCheck(t *testing.T) {
 			"Valid token (check)",
 			callURL,
 			[]any{handler, "/check", map[string]any{
-				"token"  : tokenStr,
-			}},
+//				"token"  : tokenStr,
+			}, tokenStr},
 			[]any{map[string]any{
 				"match" : true,
 			}},
@@ -477,7 +498,7 @@ func TestChainCheck(t *testing.T) {
 			"Valid token (chain)",
 			callURLWithToken,
 			[]any{handler, "/chain", map[string]any{
-				"token"  : tokenStr,
+//				"token"  : tokenStr,
 			}},
 			[]any{map[string]any{
 				"token" : jwt.MapClaims{
@@ -495,7 +516,7 @@ func TestChainCheck(t *testing.T) {
 			"Valid token (bis)",
 			callURLWithToken,
 			[]any{handler, "/chain", map[string]any{
-				"token"  : tokenStr,
+//				"token"  : tokenStr,
 			}},
 			[]any{map[string]any{
 				"token" : jwt.MapClaims{
@@ -556,8 +577,8 @@ func TestTweaking(t *testing.T) {
 			"Valid token",
 			callURL,
 			[]any{handler, "/chain", map[string]any{
-				"token"  : tokenStr,
-			}},
+//				"token"  : tokenStr,
+			}, tokenStr},
 			[]any{map[string]any{
 				"err" : errSignature,
 			}},

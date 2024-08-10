@@ -53,13 +53,17 @@ type LogoutIn struct {
 	Token  string `json:"token"`
 }
 
-type LogoutOut struct {}
+type LogoutOut struct {
+	Token  string `json:"token"`
+}
 
 type SignoutIn struct {
 	Token  string `json:"token"`
 }
 
-type SignoutOut struct {}
+type SignoutOut struct {
+	Token  string `json:"token"`
+}
 
 type ChainIn struct {
 	Token  string `json:"token"`

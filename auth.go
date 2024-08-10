@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"golang.org/x/crypto/bcrypt"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
+	"reflect"
 )
 
 // TODO: timeout
@@ -81,39 +81,128 @@ func fails(w http.ResponseWriter, err error) {
 	}
 }
 
-// fancy
-func wrap[Tin, Tout any](
-	db DB, f func(db DB, in *Tin, out *Tout) error,
-) func(w http.ResponseWriter, r *http.Request) {
+const (
+	cookieName = "token"
+)
+
+// Reset the cookie token. This can be triggered e.g. when
+// the cookie becomes invalid.
+func RstCookie(w http.ResponseWriter) {
+	setCookie(w, "", -1)
+}
+
+func setCookie(w http.ResponseWriter, tok string, d int) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     cookieName,
+		Value:    tok,
+		Path:     "/",
+		MaxAge:   d,
+		HttpOnly: true,
+	})
+}
+
+func SetCookie(w http.ResponseWriter, tok string) {
+	setCookie(w, tok, 3600*2)
+}
+
+func GetCookie(w http.ResponseWriter, r *http.Request) (string, error) {
+	c, err := r.Cookie(cookieName)
+	v := ""
+
+	// Should never happen I guess
+	if err != nil && !errors.Is(err, http.ErrNoCookie) {
+		return "", err
+	} else if err == nil {
+		v = c.Value;
+	}
+
+	return v, nil
+
+}
+
+// Read the request's body as JSON
+func getJSONBody[T any](w http.ResponseWriter, r *http.Request, in *T) error {
+	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
+	err := json.NewDecoder(r.Body).Decode(&in)
+	if err != nil {
+		err = fmt.Errorf("JSON decoding failure: %s", err)
+	}
+	return err
+}
+
+// Dump out to w as JSON.
+func setJSONBody[T any](w http.ResponseWriter, r *http.Request, out T) error {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	err := json.NewEncoder(w).Encode(out)
+	if err != nil {
+		err = fmt.Errorf("JSON encoding failure: %s", err)
+	}
+	return err
+}
+
+// Test if a (struct of a given) type has a "Token" field
+func hasToken[T any](v *T) bool {
+	x := reflect.ValueOf(v).Elem()
+	return x.FieldByName("Token") != reflect.Value{}
+}
+
+// NOTE: "t" can be used as a context, a db connection, an aggregate
+// of both, etc.
+//
+// NOTE: on the use of reflect: it's a bit clumsy, but avoids us to either
+//	- essentially, forward r, w to every function, so that they can
+//	eventually get/set the cookie themselves. This also would complicate
+//	an potential JSON-RPC interface, which will still require a token
+//	in the JSON blobs.
+//
+//	- use a r.Context() to store the token found in the cookie, or the
+//	token to be sent back to the user. But then the code is littered
+//	with context accesses to get variables.
+//
+// The current solution is a bit magical, but less invasive/clumsy.
+func Wrap[T, Tin, Tout any](
+	t T, f func(T, *Tin, *Tout) error,
+) func(http.ResponseWriter, *http.Request) {
+	var x Tin;  tokIn  := hasToken[Tin](&x)
+	var y Tout; tokOut := hasToken[Tout](&y)
+
 	return func(w http.ResponseWriter, r *http.Request) {
-		var in Tin
-		var out Tout
+		var in Tin; var out Tout; var err error
 
-		r.Body = http.MaxBytesReader(w, r.Body, 1048576)
-		err := json.NewDecoder(r.Body).Decode(&in)
-		if err != nil {
-			log.Println(err)
-			err = fmt.Errorf("JSON decoding failure")
-			goto err
+		if err = getJSONBody[Tin](w, r, &in); err != nil {
+			goto Err
 		}
 
-		err = f(db, &in, &out)
-		if err != nil {
-			goto err
+		if tokIn {
+			tok, err := GetCookie(w, r)
+			if err != nil {
+				goto Err
+			}
+			reflect.ValueOf(&in).Elem().FieldByName("Token").SetString(tok)
 		}
 
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		err = json.NewEncoder(w).Encode(out)
+		if err = f(t, &in, &out); err != nil {
+			goto Err
+		}
 
-		if err != nil {
-			log.Println(err)
-			err = fmt.Errorf("JSON encoding failure")
-			goto err
+		if tokOut {
+			// TODO: cookie reseting vs. setting (max-age) isn't tested
+			tok := reflect.ValueOf(&out).Elem().FieldByName("Token").String()
+			if tok == "" {
+				RstCookie(w)
+			} else {
+				SetCookie(w, tok)
+			}
+		}
+
+
+		if err = setJSONBody[Tout](w, r, out); err != nil {
+			goto Err
 		}
 
 		return
 
-	err:
+	Err:
 		fails(w, err)
 		return
 	}
@@ -237,6 +326,7 @@ func Logout(db DB, in *LogoutIn, out *LogoutOut) error {
 
 	ClearUser(uid)
 	return nil
+
 }
 
 func Edit(db DB, in *EditIn, out *EditOut) (err error) {
@@ -280,30 +370,28 @@ func Verify(db DB, in *VerifyIn, out *VerifyOut) (err error) {
 func New(db DB) *http.ServeMux {
 	mux := http.NewServeMux()
 
-	// We could automatically detect types via reflection. Or generate
-	// this with a shell script or whatnot.
-
 	// signin from an email/username/password
-	mux.HandleFunc("/signin", wrap[SigninIn, SigninOut](db, Signin))
+	mux.HandleFunc("/signin", Wrap[DB, SigninIn, SigninOut](db, Signin))
 
-	mux.HandleFunc("/signout", wrap[SignoutIn, SignoutOut](db, Signout))
+	mux.HandleFunc("/signout", Wrap[DB, SignoutIn, SignoutOut](db, Signout))
 
-	mux.HandleFunc("/login", wrap[LoginIn, LoginOut](db, Login))
+
+	mux.HandleFunc("/login", Wrap[DB, LoginIn, LoginOut](db, Login))
 
 	// Check a token's validity/update it
-	mux.HandleFunc("/chain", wrap[ChainIn, ChainOut](db, Chain))
+	mux.HandleFunc("/chain", Wrap[DB, ChainIn, ChainOut](db, Chain))
 
 	// Check a token's validity
-	mux.HandleFunc("/check", wrap[CheckIn, CheckOut](db, Check))
+	mux.HandleFunc("/check", Wrap[DB, CheckIn, CheckOut](db, Check))
 
-	mux.HandleFunc("/logout", wrap[LogoutIn, LogoutOut](db, Logout))
+	mux.HandleFunc("/logout", Wrap[DB, LogoutIn, LogoutOut](db, Logout))
 
 	// email ownership verification upon signin,
 	// followed by an automatic login.
-	mux.HandleFunc("/verify", wrap[VerifyIn, VerifyOut](db, Verify))
+	mux.HandleFunc("/verify", Wrap[DB, VerifyIn, VerifyOut](db, Verify))
 
 	// Password/email edition
-	mux.HandleFunc("/edit", wrap[EditIn, EditOut](db, Edit))
+	mux.HandleFunc("/edit", Wrap[DB, EditIn, EditOut](db, Edit))
 
 	return mux
 }
