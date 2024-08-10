@@ -4,7 +4,7 @@ package auth
 // to isolate technical details.
 //
 // "Public" functions are the capitalized ones (NewToken(),
-// IsValidToken(), ChainToken(), ClearUser())
+// CheckToken(), ChainToken(), ClearUser())
 
 import (
 	"fmt"
@@ -93,7 +93,7 @@ func parseToken(str string) (jwt.MapClaims, error) {
 	return nil, fmt.Errorf("Invalid token (not a jwt.MapClaims?)")
 }
 
-func isValidToken(claims jwt.MapClaims) bool {
+func checkToken(claims jwt.MapClaims) bool {
 	uniqsMu.Lock()
 	defer uniqsMu.Unlock()
 
@@ -120,7 +120,7 @@ func isValidToken(claims jwt.MapClaims) bool {
 	return dok && uok
 }
 
-func IsValidToken(str string) (bool, UserId, error) {
+func CheckToken(str string) (bool, UserId, error) {
 	// TODO: test & document (essentially, we're going to
 	// rely on a HTTP cookie to store the token, and the way
 	// it's removed is by setting it to the empty string)
@@ -135,7 +135,7 @@ func IsValidToken(str string) (bool, UserId, error) {
 	xuid, _ := claims["uid"].(float64)
 	uid := UserId(xuid)
 
-	return isValidToken(claims), uid, nil
+	return checkToken(claims), uid, nil
 }
 
 // NOTE: Again, not inlined in ChainToken() for tests
@@ -145,7 +145,7 @@ func chainToken(str string, edate int64, uniq string) (string, error) {
 		return "", err
 	}
 
-	if !isValidToken(claims) {
+	if !checkToken(claims) {
 		return "", fmt.Errorf("Expired token")
 	}
 

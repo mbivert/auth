@@ -291,7 +291,7 @@ func Login(db DB, in *LoginIn, out *LoginOut) error {
 }
 
 func Signout(db DB, in *SignoutIn, out *SignoutOut) error {
-	ok, uid, err := IsValidToken(in.Token)
+	ok, uid, err := CheckToken(in.Token)
 	if err != nil {
 		return err
 	}
@@ -311,12 +311,12 @@ func Chain(db DB, in *ChainIn, out *ChainOut) (err error) {
 }
 
 func Check(db DB, in *CheckIn, out *CheckOut) (err error) {
-	out.Match, _, err = IsValidToken(in.Token)
+	out.Match, _, err = CheckToken(in.Token)
 	return err
 }
 
 func Logout(db DB, in *LogoutIn, out *LogoutOut) error {
-	ok, uid, err := IsValidToken(in.Token)
+	ok, uid, err := CheckToken(in.Token)
 	if err != nil {
 		return err
 	}
