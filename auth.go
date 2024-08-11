@@ -99,6 +99,18 @@ func setCookie(w http.ResponseWriter, tok string, d int) {
 		MaxAge:   d,
 		HttpOnly: true,
 	})
+	// TODO: untested (automatically)
+	c := "1"
+	if tok == "" {
+		c = "0"
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     "connected",
+		Value:    c,
+		Path:     "/",
+		MaxAge:   d,
+		HttpOnly: false,
+	})
 }
 
 func SetCookie(w http.ResponseWriter, tok string) {

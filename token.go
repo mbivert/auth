@@ -104,7 +104,7 @@ func checkToken(claims jwt.MapClaims) bool {
 	// NOTE: we may still want to add assertions here anyway.
 	date, _ := claims["date"].(float64)
 	uniq, _ := claims["uniq"].(string)
-	xuid,  _ := claims["uid"].(float64)
+	xuid, _ := claims["uid"].(float64)
 
 	uid := UserId(xuid)
 
