@@ -82,7 +82,7 @@ func fails(w http.ResponseWriter, err error) {
 }
 
 const (
-	cookieName = "token"
+	CookieName = "token"
 )
 
 // Reset the cookie token. This can be triggered e.g. when
@@ -93,7 +93,7 @@ func RstCookie(w http.ResponseWriter) {
 
 func setCookie(w http.ResponseWriter, tok string, d int) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     cookieName,
+		Name:     CookieName,
 		Value:    tok,
 		Path:     "/",
 		MaxAge:   d,
@@ -118,7 +118,7 @@ func SetCookie(w http.ResponseWriter, tok string) {
 }
 
 func GetCookie(w http.ResponseWriter, r *http.Request) (string, error) {
-	c, err := r.Cookie(cookieName)
+	c, err := r.Cookie(CookieName)
 	v := ""
 
 	// Should never happen I guess

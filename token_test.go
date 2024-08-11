@@ -26,7 +26,7 @@ func newParseToken(uid UserId, date int64, uniq string) jwt.MapClaims {
 	if err != nil {
 		log.Fatal(err)
 	}
-	claims, err := parseToken(str)
+	claims, err := ParseToken(str)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func newChainParseToken(
 		log.Fatal(err)
 	}
 
-	claims, err := parseToken(str2)
+	claims, err := ParseToken(str2)
 	if err != nil {
 		log.Fatal(err)
 	}

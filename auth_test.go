@@ -24,15 +24,13 @@ var handler http.Handler
 var errSegment = jwt.ErrTokenMalformed.Error()+": token contains an invalid number of segments"
 var errSignature = jwt.ErrTokenSignatureInvalid.Error()+": signature is invalid"
 
-func init() {
-	if err := LoadConf("config.json.base"); err != nil {
-		log.Fatal(err)
-	}
-}
-
 // Individual tests rely on a ~fresh DB; "init()" cannot be
 // called directly.
 func initauthtest() {
+	if err := LoadConf("config.json.base"); err != nil {
+		log.Fatal(err)
+	}
+
 	dbfn := "./db_test.sqlite"
 	err := os.RemoveAll(dbfn) // won't complain if dbfn doesn't exist
 	if err != nil {
@@ -80,7 +78,7 @@ func callURL(handler http.Handler, url string, args any, tok string) any {
 	req.Header.Add("Content-Type", "application/json")
 	if tok != "" {
 		req.AddCookie(&http.Cookie{
-			Name:     cookieName,
+			Name:     CookieName,
 			Value:    tok,
 			Path:     "/",
 			HttpOnly: true,
@@ -127,7 +125,7 @@ func callURLWithToken(handler http.Handler, url string, args any) any {
 		log.Fatal("Token is not a string")
 	}
 
-	tok, err := parseToken(tokenStr)
+	tok, err := ParseToken(tokenStr)
 	if err != nil {
 		log.Fatal("Failed to parse token")
 	}

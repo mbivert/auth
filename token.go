@@ -74,7 +74,7 @@ func parseECDSA(tok *jwt.Token) (any, error) {
 	return publicKey, nil
 }
 
-func parseToken(str string) (jwt.MapClaims, error) {
+func ParseToken(str string) (jwt.MapClaims, error) {
 	tok, err := jwt.Parse(str, func(tok *jwt.Token) (any, error) {
 		if C.HMAC != ""{
 			return parseHMAC(tok)
@@ -127,7 +127,7 @@ func CheckToken(str string) (bool, UserId, error) {
 	if str == "" {
 		return false, -1, nil
 	}
-	claims, err := parseToken(str)
+	claims, err := ParseToken(str)
 	if err != nil {
 		return false, -1, err
 	}
@@ -140,7 +140,7 @@ func CheckToken(str string) (bool, UserId, error) {
 
 // NOTE: Again, not inlined in ChainToken() for tests
 func chainToken(str string, edate int64, uniq string) (string, error) {
-	claims, err := parseToken(str)
+	claims, err := ParseToken(str)
 	if err != nil {
 		return "", err
 	}
