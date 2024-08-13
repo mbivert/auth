@@ -9,7 +9,10 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	_ "github.com/mattn/go-sqlite3"
+//	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/ncruces/go-sqlite3"
+	_ "github.com/ncruces/go-sqlite3/driver"
+	_ "github.com/ncruces/go-sqlite3/embed"
 )
 
 type SQLiteDB struct {
@@ -62,10 +65,20 @@ func (db *SQLiteDB) AddUser(u *User) error {
 
 	// Improve error message (this is for tests purposes: caller
 	// is expected to provide end user with something less informative)
+
+/*
+	// This is for github.com/mattn/go-sqlite3
 	if err != nil && err.Error() == "UNIQUE constraint failed: User.Email" {
 		err = fmt.Errorf("Email already used")
 	}
 	if err != nil && err.Error() == "UNIQUE constraint failed: User.Name" {
+		err = fmt.Errorf("Username already used")
+	}
+*/
+	if err != nil && err.Error() == "sqlite3: constraint failed: UNIQUE constraint failed: User.Email" {
+		err = fmt.Errorf("Email already used")
+	}
+	if err != nil && err.Error() == "sqlite3: constraint failed: UNIQUE constraint failed: User.Name" {
 		err = fmt.Errorf("Username already used")
 	}
 
